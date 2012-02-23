@@ -253,9 +253,7 @@ double			dialog_ratio = 0.6;
 #endif
 
 int			stack_enabled = 1;
-int			clock_enabled = 1;
 int			urgent_enabled = 0;
-char			*clock_format = NULL;
 int			title_name_enabled = 0;
 int			title_class_enabled = 0;
 int			window_name_enabled = 0;
@@ -4471,7 +4469,7 @@ setup_quirks(void)
 #define SWM_CONF_FILE_OLD	"scrotwm.conf"
 
 enum	{
-	  SWM_S_STACK_ENABLED, SWM_S_CLOCK_ENABLED, SWM_S_CLOCK_FORMAT,
+	  SWM_S_STACK_ENABLED,
 	  SWM_S_CYCLE_EMPTY, SWM_S_CYCLE_VISIBLE, SWM_S_SS_ENABLED,
 	  SWM_S_TERM_WIDTH, SWM_S_TITLE_CLASS_ENABLED,
 	  SWM_S_TITLE_NAME_ENABLED, SWM_S_WINDOW_NAME_ENABLED, SWM_S_URGENT_ENABLED,
@@ -4487,16 +4485,6 @@ setconfvalue(char *selector, char *value, int flags)
 	switch (flags) {
 	case SWM_S_STACK_ENABLED:
 		stack_enabled = atoi(value);
-		break;
-	case SWM_S_CLOCK_ENABLED:
-		clock_enabled = atoi(value);
-		break;
-	case SWM_S_CLOCK_FORMAT:
-#ifndef SWM_DENY_CLOCK_FORMAT
-		free(clock_format);
-		if ((clock_format = strdup(value)) == NULL)
-			err(1, "setconfvalue: clock_format");
-#endif
 		break;
 	case SWM_S_CYCLE_EMPTY:
 		cycle_empty = atoi(value);
@@ -4717,8 +4705,6 @@ struct config_option configopt[] = {
 	{ "keyboard_mapping",		setkeymapping,	0 },
 	{ "bind",			setconfbinding,	0 },
 	{ "stack_enabled",		setconfvalue,	SWM_S_STACK_ENABLED },
-	{ "clock_enabled",		setconfvalue,	SWM_S_CLOCK_ENABLED },
-	{ "clock_format",		setconfvalue,	SWM_S_CLOCK_FORMAT },
 	{ "color_focus",		setconfcolor,	SWM_S_COLOR_FOCUS },
 	{ "color_unfocus",		setconfcolor,	SWM_S_COLOR_UNFOCUS },
 	{ "cycle_empty",		setconfvalue,	SWM_S_CYCLE_EMPTY },
@@ -5831,9 +5817,6 @@ void
 setup_globals(void)
 {
 	if ((spawn_term[0] = strdup("xterm")) == NULL)
-		err(1, "setup_globals: strdup: failed to allocate memory.");
-
-	if ((clock_format = strdup("%a %b %d %R %Z %Y")) == NULL)
 		err(1, "setup_globals: strdup: failed to allocate memory.");
 }
 
