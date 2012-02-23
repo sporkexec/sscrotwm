@@ -179,7 +179,6 @@ u_int32_t		swm_debug = 0
 #define SH_INC(w)		(w)->sh_mask & PResizeInc
 #define SH_INC_W(w)		(w)->sh.width_inc
 #define SH_INC_H(w)		(w)->sh.height_inc
-#define SWM_MAX_FONT_STEPS	(3)
 #define WINID(w)		((w) ? (w)->id : 0)
 #define YESNO(x)		((x) ? "yes" : "no")
 
@@ -219,7 +218,6 @@ Display			*display;
 int			cycle_empty = 0;
 int			cycle_visible = 0;
 int			term_width = 0;
-int			font_adjusted = 0;
 unsigned int		mod_key = MODKEY;
 
 /* dmenu search */
@@ -314,8 +312,6 @@ struct ws_win {
 	int			manual;
 	int			iconic;
 	unsigned int		ewmh_flags;
-	int			font_size_boundary[SWM_MAX_FONT_STEPS];
-	int			font_steps;
 	int			last_inc;
 	int			can_delete;
 	int			take_focus;
@@ -485,7 +481,6 @@ struct quirk {
 #define SWM_Q_FLOAT		(1<<0)	/* float this window */
 #define SWM_Q_TRANSSZ		(1<<1)	/* transiend window size too small */
 #define SWM_Q_ANYWHERE		(1<<2)	/* don't position this window */
-#define SWM_Q_XTERM_FONTADJ	(1<<3)	/* adjust xterm fonts when resizing */
 #define SWM_Q_FULLSCREEN	(1<<4)	/* remove border */
 #define SWM_Q_FOCUSPREV		(1<<5)	/* focus on caller */
 };
@@ -1636,8 +1631,6 @@ spawnterm(struct swm_region *r, union arg *args)
 	DNPRINTF(SWM_D_MISC, "spawnterm\n");
 
 	if (fork() == 0) {
-		if (term_width)
-			setenv("_SWM_XTERM_FONTADJ", "", 1);
 		spawn(r->ws->idx, args, 1);
 	}
 }
@@ -2309,8 +2302,6 @@ stack(void) {
 			r->ws->old_r = r;
 		}
 	}
-	if (font_adjusted)
-		font_adjusted--;
 
 	if (focus_mode == SWM_FOCUS_DEFAULT)
 		drain_enter_notify();
@@ -2406,35 +2397,6 @@ stack_floater(struct ws_win *win, struct swm_region *r)
 	    "%d x %d\n", win->id, wc.x, wc.y, wc.width, wc.height);
 
 	XConfigureWindow(display, win->id, mask, &wc);
-}
-
-/*
- * Send keystrokes to terminal to decrease/increase the font size as the
- * window size changes.
- */
-void
-adjust_font(struct ws_win *win)
-{
-	if (!(win->quirks & SWM_Q_XTERM_FONTADJ) ||
-	    win->floating || win->transient)
-		return;
-
-	if (win->sh.width_inc && win->last_inc != win->sh.width_inc &&
-	    WIDTH(win) / win->sh.width_inc < term_width &&
-	    win->font_steps < SWM_MAX_FONT_STEPS) {
-		win->font_size_boundary[win->font_steps] =
-		    (win->sh.width_inc * term_width) + win->sh.base_width;
-		win->font_steps++;
-		font_adjusted++;
-		win->last_inc = win->sh.width_inc;
-		fake_keypress(win, XK_KP_Subtract, ShiftMask);
-	} else if (win->font_steps && win->last_inc != win->sh.width_inc &&
-	    WIDTH(win) > win->font_size_boundary[win->font_steps - 1]) {
-		win->font_steps--;
-		font_adjusted++;
-		win->last_inc = win->sh.width_inc;
-		fake_keypress(win, XK_KP_Add, ShiftMask);
-	}
 }
 
 #define SWAPXY(g)	do {				\
@@ -2608,7 +2570,6 @@ stack_master(struct workspace *ws, struct swm_geometry *g, int rot, int flip)
 			}
 		}
 		if (reconfigure) {
-			adjust_font(win);
 			mask = CWX | CWY | CWWidth | CWHeight | CWBorderWidth;
 			XConfigureWindow(display, win->id, mask, &wc);
 		}
@@ -4505,7 +4466,6 @@ const char *quirkname[] = {
 	"FLOAT",
 	"TRANSSZ",
 	"ANYWHERE",
-	"XTERM_FONTADJ",
 	"FULLSCREEN",
 	"FOCUSPREV",
 };
@@ -4648,7 +4608,6 @@ setup_quirks(void)
 	setquirk("Firefox-bin",		"firefox-bin",	SWM_Q_TRANSSZ);
 	setquirk("Firefox",		"Dialog",	SWM_Q_FLOAT);
 	setquirk("Gimp",		"gimp",		SWM_Q_FLOAT | SWM_Q_ANYWHERE);
-	setquirk("XTerm",		"xterm",	SWM_Q_XTERM_FONTADJ);
 	setquirk("xine",		"Xine Window",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
 	setquirk("Xitk",		"Xitk Combo",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
 	setquirk("xine",		"xine Panel",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
@@ -5343,14 +5302,6 @@ manage_window(Window id)
 		border_me = 1;
 	}
 
-	/* Reset font sizes (the bruteforce way; no default keybinding). */
-	if (win->quirks & SWM_Q_XTERM_FONTADJ) {
-		for (i = 0; i < SWM_MAX_FONT_STEPS; i++)
-			fake_keypress(win, XK_KP_Subtract, ShiftMask);
-		for (i = 0; i < SWM_MAX_FONT_STEPS; i++)
-			fake_keypress(win, XK_KP_Add, ShiftMask);
-	}
-
 	ewmh_get_win_state(win);
 	ewmh_update_actions(win);
 	ewmh_update_win_state(win, None, _NET_WM_STATE_REMOVE);
@@ -5555,9 +5506,6 @@ configurenotify(XEvent *e)
 	win = find_window(e->xconfigure.window);
 	if (win) {
 		XGetWMNormalHints(display, win->id, &win->sh, &win->sh_mask);
-		adjust_font(win);
-		if (font_adjusted)
-			stack();
 		if (focus_mode == SWM_FOCUS_DEFAULT)
 			drain_enter_notify();
 	}
