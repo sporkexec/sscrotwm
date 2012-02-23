@@ -181,10 +181,6 @@ u_int32_t		swm_debug = 0
 #define WINID(w)		((w) ? (w)->id : 0)
 #define YESNO(x)		((x) ? "yes" : "no")
 
-#define SWM_FOCUS_DEFAULT	(0)
-#define SWM_FOCUS_SYNERGY	(1)
-#define SWM_FOCUS_FOLLOW	(2)
-
 #define SWM_CONF_DEFAULT	(0)
 #define SWM_CONF_KEYMAPPING	(1)
 
@@ -263,7 +259,6 @@ char			*clock_format = NULL;
 int			title_name_enabled = 0;
 int			title_class_enabled = 0;
 int			window_name_enabled = 0;
-int			focus_mode = SWM_FOCUS_DEFAULT;
 int			disable_border = 0;
 int			border_width = 1;
 int			verbose_layout = 0;
@@ -1036,7 +1031,6 @@ void			buttonpress(XEvent *);
 void			configurerequest(XEvent *);
 void			configurenotify(XEvent *);
 void			destroynotify(XEvent *);
-void			enternotify(XEvent *);
 void			focusevent(XEvent *);
 void			mapnotify(XEvent *);
 void			mappingnotify(XEvent *);
@@ -1053,7 +1047,6 @@ void			(*handler[LASTEvent])(XEvent *) = {
 				[ConfigureRequest] = configurerequest,
 				[ConfigureNotify] = configurenotify,
 				[DestroyNotify] = destroynotify,
-				[EnterNotify] = enternotify,
 				[FocusIn] = focusevent,
 				[FocusOut] = focusevent,
 				[MapNotify] = mapnotify,
@@ -1840,9 +1833,6 @@ switchws(struct swm_region *r, union arg *args)
 	if (unmap_old)
 		TAILQ_FOREACH(win, &old_ws->winlist, entry)
 			unmap_window(win);
-
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 }
 
 void
@@ -2218,8 +2208,6 @@ cycle_layout(struct swm_region *r, union arg *args)
 		ws->cur_layout = &layouts[0];
 
 	stack();
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 	a.id = SWM_ARG_ID_FOCUSCUR;
 	focus(r, &a);
 }
@@ -2267,9 +2255,6 @@ stack(void) {
 			r->ws->old_r = r;
 		}
 	}
-
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 
 	DNPRINTF(SWM_D_STACK, "stack: end\n");
 }
@@ -2820,8 +2805,6 @@ iconify(struct swm_region *r, union arg *args)
 	unmap_window(r->ws->focus);
 	update_iconic(r->ws->focus, 1);
 	stack();
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 	r->ws->focus = NULL;
 	a.id = SWM_ARG_ID_FOCUSCUR;
 	focus(r, &a);
@@ -3211,9 +3194,6 @@ floating_toggle(struct swm_region *r, union arg *args)
 	    _NET_WM_STATE_TOGGLE);
 
 	stack();
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
-
 	if (win == win->ws->focus) {
 		a.id = SWM_ARG_ID_FOCUSCUR;
 		focus(win->ws->r, &a);
@@ -3301,9 +3281,6 @@ resize(struct ws_win *win, union arg *args)
 		store_float_geom(win,r);
 		return;
 	}
-
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 
 	/* get cursor offset from window root */
 	if (!XQueryPointer(display, win->id, &rr, &cr, &x, &y, &wx, &wy, &mask))
@@ -4501,7 +4478,7 @@ enum	{
 	  SWM_S_CYCLE_EMPTY, SWM_S_CYCLE_VISIBLE, SWM_S_SS_ENABLED,
 	  SWM_S_TERM_WIDTH, SWM_S_TITLE_CLASS_ENABLED,
 	  SWM_S_TITLE_NAME_ENABLED, SWM_S_WINDOW_NAME_ENABLED, SWM_S_URGENT_ENABLED,
-	  SWM_S_FOCUS_MODE, SWM_S_DISABLE_BORDER, SWM_S_BORDER_WIDTH,
+	  SWM_S_DISABLE_BORDER, SWM_S_BORDER_WIDTH,
 	  SWM_S_SPAWN_TERM,
 	  SWM_S_SS_APP, SWM_S_DIALOG_RATIO,
 	  SWM_S_VERBOSE_LAYOUT
@@ -4547,16 +4524,6 @@ setconfvalue(char *selector, char *value, int flags)
 		break;
 	case SWM_S_URGENT_ENABLED:
 		urgent_enabled = atoi(value);
-		break;
-	case SWM_S_FOCUS_MODE:
-		if (!strcmp(value, "default"))
-			focus_mode = SWM_FOCUS_DEFAULT;
-		else if (!strcmp(value, "follow_cursor"))
-			focus_mode = SWM_FOCUS_FOLLOW;
-		else if (!strcmp(value, "synergy"))
-			focus_mode = SWM_FOCUS_SYNERGY;
-		else
-			errx(1, "focus_mode");
 		break;
 	case SWM_S_DISABLE_BORDER:
 		disable_border = atoi(value);
@@ -4773,7 +4740,6 @@ struct config_option configopt[] = {
 	{ "term_width",			setconfvalue,	SWM_S_TERM_WIDTH },
 	{ "title_class_enabled",	setconfvalue,	SWM_S_TITLE_CLASS_ENABLED },
 	{ "title_name_enabled",		setconfvalue,	SWM_S_TITLE_NAME_ENABLED },
-	{ "focus_mode",			setconfvalue,	SWM_S_FOCUS_MODE },
 	{ "disable_border",		setconfvalue,	SWM_S_DISABLE_BORDER },
 	{ "border_width",		setconfvalue,	SWM_S_BORDER_WIDTH },
 	{ "autorun",			setautorun,	0 },
@@ -5370,8 +5336,6 @@ configurenotify(XEvent *e)
 	win = find_window(e->xconfigure.window);
 	if (win) {
 		XGetWMNormalHints(display, win->id, &win->sh, &win->sh_mask);
-		if (focus_mode == SWM_FOCUS_DEFAULT)
-			drain_enter_notify();
 	}
 }
 
@@ -5395,126 +5359,7 @@ destroynotify(XEvent *e)
 
 	unmanage_window(win);
 	stack();
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 	free_window(win);
-}
-
-void
-enternotify(XEvent *e)
-{
-	XCrossingEvent		*ev = &e->xcrossing;
-	XEvent			cne;
-	struct ws_win		*win;
-#if 0
-	struct ws_win		*w;
-	Window			focus_return;
-	int			revert_to_return;
-#endif
-	DNPRINTF(SWM_D_FOCUS, "enternotify: window: 0x%lx, mode: %d, detail: "
-	    "%d, root: 0x%lx, subwindow: 0x%lx, same_screen: %s, focus: %s, "
-	    "state: %d\n", ev->window, ev->mode, ev->detail, ev->root,
-	    ev->subwindow, YESNO(ev->same_screen), YESNO(ev->focus), ev->state);
-
-	if (ev->mode != NotifyNormal) {
-		DNPRINTF(SWM_D_EVENT, "skip enternotify: generated by "
-		    "cursor grab.\n");
-		return;
-	}
-
-	switch (focus_mode) {
-	case SWM_FOCUS_DEFAULT:
-		break;
-	case SWM_FOCUS_FOLLOW:
-		break;
-	case SWM_FOCUS_SYNERGY:
-#if 0
-	/*
-	 * all these checks need to be in this order because the
-	 * XCheckTypedWindowEvent relies on weeding out the previous events
-	 *
-	 * making this code an option would enable a follow mouse for focus
-	 * feature
-	 */
-
-	/*
-	 * state is set when we are switching workspaces and focus is set when
-	 * the window or a subwindow already has focus (occurs during restart).
-	 *
-	 * Only honor the focus flag if last_focus_event is not FocusOut,
-	 * this allows spectrwm to continue to control focus when another
-	 * program is also playing with it.
-	 */
-	if (ev->state || (ev->focus && last_focus_event != FocusOut)) {
-		DNPRINTF(SWM_D_EVENT, "ignoring enternotify: focus\n");
-		return;
-	}
-
-	/*
-	 * happens when a window is created or destroyed and the border
-	 * crosses the mouse pointer and when switching ws
-	 *
-	 * we need the subwindow test to see if we came from root in order
-	 * to give focus to floaters
-	 */
-	if (ev->mode == NotifyNormal && ev->detail == NotifyVirtual &&
-	    ev->subwindow == 0) {
-		DNPRINTF(SWM_D_EVENT, "ignoring enternotify: NotifyVirtual\n");
-		return;
-	}
-
-	/* this window already has focus */
-	if (ev->mode == NotifyNormal && ev->detail == NotifyInferior) {
-		DNPRINTF(SWM_D_EVENT, "ignoring enternotify: win has focus\n");
-		return;
-	}
-
-	/* this window is being deleted or moved to another ws */
-	if (XCheckTypedWindowEvent(display, ev->window, ConfigureNotify,
-	    &cne) == True) {
-		DNPRINTF(SWM_D_EVENT, "ignoring enternotify: configurenotify\n");
-		XPutBackEvent(display, &cne);
-		return;
-	}
-
-	if ((win = find_window(ev->window)) == NULL) {
-		DNPRINTF(SWM_D_EVENT, "ignoring enternotify: win == NULL\n");
-		return;
-	}
-
-	/*
-	 * In fullstack kill all enters unless they come from a different ws
-	 * (i.e. another region) or focus has been grabbed externally.
-	 */
-	if (win->ws->cur_layout->flags & SWM_L_FOCUSPREV &&
-	    last_focus_event != FocusOut) {
-		XGetInputFocus(display, &focus_return, &revert_to_return);
-		if ((w = find_window(focus_return)) == NULL ||
-		    w->ws == win->ws) {
-			DNPRINTF(SWM_D_EVENT, "ignoring event: fullstack\n");
-			return;
-		}
-	}
-#endif
-		break;
-	}
-
-	if ((win = find_window(ev->window)) == NULL) {
-		DNPRINTF(SWM_D_EVENT, "skip enternotify: window is NULL\n");
-		return;
-	}
-
-	/*
-	 * if we have more enternotifies let them handle it in due time
-	 */
-	if (XCheckTypedEvent(display, EnterNotify, &cne) == True) {
-		DNPRINTF(SWM_D_EVENT,
-		    "ignoring enternotify: got more enternotify\n");
-		XPutBackEvent(display, &cne);
-		return;
-	}
-
-	focus_magic(win);
 }
 
 /* lets us use one switch statement for arbitrary mode/detail combinations */
@@ -5672,9 +5517,6 @@ unmapnotify(XEvent *e)
 		/* resend unmap because we ated it */
 		XUnmapWindow(display, e->xunmap.window);
 	}
-
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 }
 
 void
@@ -5927,8 +5769,6 @@ screenchange(XEvent *e) {
 	scan_xrandr(i);
 
 	stack();
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 }
 
 void
@@ -6187,8 +6027,6 @@ noconfig:
 
 	grabkeys();
 	stack();
-	if (focus_mode == SWM_FOCUS_DEFAULT)
-		drain_enter_notify();
 
 	xfd = ConnectionNumber(display);
 	while (running) {
