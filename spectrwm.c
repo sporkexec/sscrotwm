@@ -1144,7 +1144,7 @@ name_to_color(char *colorname)
 	status = XAllocNamedColor(display, cmap, colorname,
 	    &screen_def, &exact_def);
 	if (!status) {
-		strlcat(cname, colorname + 2, sizeof cname - 1);
+		strncpy(cname, colorname + 2, sizeof cname - 1);
 		status = XAllocNamedColor(display, cmap, cname, &screen_def,
 		    &exact_def);
 	}
