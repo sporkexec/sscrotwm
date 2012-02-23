@@ -453,8 +453,6 @@ union arg {
 #define SWM_ARG_ID_STACKDEC	(51)
 #define SWM_ARG_ID_SS_ALL	(60)
 #define SWM_ARG_ID_SS_WINDOW	(61)
-#define SWM_ARG_ID_DONTCENTER	(70)
-#define SWM_ARG_ID_CENTER	(71)
 #define SWM_ARG_ID_KILLWINDOW	(80)
 #define SWM_ARG_ID_DELETEWINDOW	(81)
 #define SWM_ARG_ID_WIDTHGROW	(90)
@@ -3324,7 +3322,6 @@ resize(struct ws_win *win, union arg *args)
 	int			x, y, wx, wy;
 	unsigned int		mask;
 	struct swm_geometry	g;
-	int			top = 0, left = 0;
 	int			dx, dy;
 
 	if (win == NULL)
@@ -3384,12 +3381,6 @@ resize(struct ws_win *win, union arg *args)
 
 	g = win->g;
 
-	if (wx < WIDTH(win) / 2)
-		left = 1;
-
-	if (wy < HEIGHT(win) / 2)
-		top = 1;
-
 	if (XGrabPointer(display, win->id, False, MOUSEMASK, GrabModeAsync,
 	    GrabModeAsync, None, None, CurrentTime) != GrabSuccess) {
 		XFreeCursor(display, None);
@@ -3411,44 +3402,16 @@ resize(struct ws_win *win, union arg *args)
 			dy = ev.xmotion.y_root - y;
 
 			/* vertical */
-			if (top)
-				dy = -dy;
-
-			if (args->id == SWM_ARG_ID_CENTER) {
-				if (g.h / 2 + dy < 1)
-					dy = 1 - g.h / 2;
-
-				Y(win) = g.y - dy;
-				HEIGHT(win) = g.h + 2 * dy;
-			} else {
-				if (g.h + dy < 1)
-					dy = 1 - g.h;
-
-				if (top)
-					Y(win) = g.y - dy;
-
-				HEIGHT(win) = g.h + dy;
-			}
+			if (g.h + dy < 1)
+				dy = 1 - g.h;
+			Y(win) = g.y;
+			HEIGHT(win) = g.h + dy;
 
 			/* horizontal */
-			if (left)
-				dx = -dx;
-
-			if (args->id == SWM_ARG_ID_CENTER) {
-				if (g.w / 2 + dx < 1)
-					dx = 1 - g.w / 2;
-
-				X(win) = g.x - dx;
-				WIDTH(win) = g.w + 2 * dx;
-			} else {
-				if (g.w + dx < 1)
-					dx = 1 - g.w;
-
-				if (left)
-					X(win) = g.x - dx;
-
-				WIDTH(win) = g.w + dx;
-			}
+			if (g.w + dx < 1)
+				dx = 1 - g.w;
+			X(win) = g.x;
+			WIDTH(win) = g.w + dx;
 
 			constrain_window(win, r, 1);
 
@@ -3813,8 +3776,7 @@ struct button {
 	union arg		args;
 } buttons[] = {
 	  /* action	key		mouse button	func	args */
-	{ client_click,	MODKEY,		Button3,	resize,	{.id = SWM_ARG_ID_DONTCENTER} },
-	{ client_click,	MODKEY | ShiftMask, Button3,	resize,	{.id = SWM_ARG_ID_CENTER} },
+	{ client_click,	MODKEY,		Button3,	resize,	{0} },
 	{ client_click,	MODKEY,		Button1,	move,	{0} },
 };
 
