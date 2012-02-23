@@ -4,7 +4,6 @@
 #define FPARSELN_UNESCREST	0x08
 #define FPARSELN_UNESCALL	0x0f
 
-size_t	strlcpy(char *, const char *, size_t);
 size_t	strlcat(char *, const char *, size_t);
 
 char   *fgetln(FILE *, size_t *);

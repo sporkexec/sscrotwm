@@ -342,8 +342,6 @@ void	vertical_stack(struct workspace *, struct swm_geometry *);
 void	horizontal_config(struct workspace *, int);
 void	horizontal_stack(struct workspace *, struct swm_geometry *);
 void	max_stack(struct workspace *, struct swm_geometry *);
-void	plain_stacker(struct workspace *);
-void	fancy_stacker(struct workspace *);
 
 struct ws_win *find_window(Window);
 
@@ -360,14 +358,12 @@ struct layout {
 	u_int32_t	flags;
 #define SWM_L_FOCUSPREV		(1<<0)
 #define SWM_L_MAPONFOCUS	(1<<1)
-	void		(*l_string)(struct workspace *);
 } layouts[] =  {
 	/* stack,		configure */
-	{ vertical_stack,	vertical_config,	0,	plain_stacker },
-	{ horizontal_stack,	horizontal_config,	0,	plain_stacker },
-	{ max_stack,		NULL,
-	  SWM_L_MAPONFOCUS | SWM_L_FOCUSPREV,			plain_stacker },
-	{ NULL,			NULL,			0,	NULL  },
+	{ vertical_stack,	vertical_config,	0 },
+	{ horizontal_stack,	horizontal_config,	0 },
+	{ max_stack,		NULL, SWM_L_MAPONFOCUS | SWM_L_FOCUSPREV },
+	{ NULL,			NULL,			0 },
 };
 
 /* position of max_stack mode in the layouts array, index into layouts! */
@@ -390,7 +386,6 @@ struct workspace {
 	struct swm_region	*old_r;		/* may be NULL */
 	struct ws_win_list	winlist;	/* list of windows in ws */
 	struct ws_win_list	unmanagedlist;	/* list of dead windows in ws */
-	char			stacker[10];	/* display stacker and layout */
 
 	/* stacker state */
 	struct {
@@ -1179,32 +1174,6 @@ setscreencolor(char *val, int i, int c)
 	} else
 		errx(1, "invalid screen index: %d out of bounds (maximum %d)",
 		    i, ScreenCount(display));
-}
-
-void
-fancy_stacker(struct workspace *ws)
-{
-	strlcpy(ws->stacker, "[   ]", sizeof ws->stacker);
-	if (ws->cur_layout->l_stack == vertical_stack)
-		snprintf(ws->stacker, sizeof ws->stacker,
-		    ws->l_state.vertical_flip ? "[%d>%d]" : "[%d|%d]",
-		    ws->l_state.vertical_mwin, ws->l_state.vertical_stacks);
-	if (ws->cur_layout->l_stack == horizontal_stack)
-		snprintf(ws->stacker, sizeof ws->stacker,
-		    ws->l_state.horizontal_flip ? "[%dv%d]" : "[%d-%d]",
-		    ws->l_state.horizontal_mwin, ws->l_state.horizontal_stacks);
-}
-
-void
-plain_stacker(struct workspace *ws)
-{
-	strlcpy(ws->stacker, "[ ]", sizeof ws->stacker);
-	if (ws->cur_layout->l_stack == vertical_stack)
-		strlcpy(ws->stacker, ws->l_state.vertical_flip ? "[>]" : "[|]",
-		    sizeof ws->stacker);
-	if (ws->cur_layout->l_stack == horizontal_stack)
-		strlcpy(ws->stacker, ws->l_state.horizontal_flip ? "[v]" : "[-]",
-		    sizeof ws->stacker);
 }
 
 void
@@ -2294,7 +2263,6 @@ stack(void) {
 			g.w -= 2 * border_width;
 			g.h -= 2 * border_width;
 			r->ws->cur_layout->l_stack(r->ws, &g);
-			r->ws->cur_layout->l_string(r->ws);
 			/* save r so we can track region changes */
 			r->ws->old_r = r;
 		}
@@ -4289,7 +4257,7 @@ setkeymapping(char *selector, char *value, int flags)
 		snprintf(keymapping_file, sizeof keymapping_file, "%s/%s",
 		    pwd->pw_dir, &value[1]);
 	else
-		strlcpy(keymapping_file, value, sizeof keymapping_file);
+		strncpy(keymapping_file, value, sizeof keymapping_file);
 	clear_keys();
 	/* load new key bindings; if it fails, revert to default bindings */
 	if (conf_load(keymapping_file, SWM_CONF_KEYMAPPING)) {
@@ -4542,8 +4510,6 @@ enum	{
 int
 setconfvalue(char *selector, char *value, int flags)
 {
-	int	i;
-
 	switch (flags) {
 	case SWM_S_STACK_ENABLED:
 		stack_enabled = atoi(value);
@@ -4609,15 +4575,6 @@ setconfvalue(char *selector, char *value, int flags)
 		dialog_ratio = atof(value);
 		if (dialog_ratio > 1.0 || dialog_ratio <= .3)
 			dialog_ratio = .6;
-		break;
-	case SWM_S_VERBOSE_LAYOUT:
-		verbose_layout = atoi(value);
-		for (i = 0; layouts[i].l_stack != NULL; i++) {
-			if (verbose_layout)
-				layouts[i].l_string = fancy_stacker;
-			else
-				layouts[i].l_string = plain_stacker;
-		}
 		break;
 	default:
 		return (1);
@@ -6067,7 +6024,6 @@ setup_screens(void)
 					layouts[k].l_config(ws,
 					    SWM_ARG_ID_STACKINIT);
 			ws->cur_layout = &layouts[0];
-			ws->cur_layout->l_string(ws);
 		}
 
 		scan_xrandr(i);
