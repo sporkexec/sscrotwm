@@ -86,7 +86,6 @@
 #include "tree.h"
 #endif
 
-#include <X11/cursorfont.h>
 #include <X11/keysym.h>
 #include <X11/Xatom.h>
 #include <X11/Xlib.h>
@@ -3327,8 +3326,6 @@ resize(struct ws_win *win, union arg *args)
 	struct swm_geometry	g;
 	int			top = 0, left = 0;
 	int			dx, dy;
-	Cursor			cursor;
-	unsigned int		shape; /* cursor style */
 
 	if (win == NULL)
 		return;
@@ -3393,18 +3390,9 @@ resize(struct ws_win *win, union arg *args)
 	if (wy < HEIGHT(win) / 2)
 		top = 1;
 
-	if (args->id == SWM_ARG_ID_CENTER)
-		shape = XC_sizing;
-	else if (top)
-		shape = (left) ? XC_top_left_corner : XC_top_right_corner;
-	else
-		shape = (left) ? XC_bottom_left_corner : XC_bottom_right_corner;
-
-	cursor = XCreateFontCursor(display, shape);
-
 	if (XGrabPointer(display, win->id, False, MOUSEMASK, GrabModeAsync,
-	    GrabModeAsync, None, cursor, CurrentTime) != GrabSuccess) {
-		XFreeCursor(display, cursor);
+	    GrabModeAsync, None, None, CurrentTime) != GrabSuccess) {
+		XFreeCursor(display, None);
 		return;
 	}
 
@@ -3480,7 +3468,7 @@ resize(struct ws_win *win, union arg *args)
 	store_float_geom(win,r);
 
 	XUngrabPointer(display, CurrentTime);
-	XFreeCursor(display, cursor);
+	XFreeCursor(display, None);
 
 	/* drain events */
 	drain_enter_notify();
@@ -3564,7 +3552,7 @@ move(struct ws_win *win, union arg *args)
 	}
 
 	if (XGrabPointer(display, win->id, False, MOUSEMASK, GrabModeAsync,
-	    GrabModeAsync, None, XCreateFontCursor(display, XC_fleur),
+	    GrabModeAsync, None, None,
 	    CurrentTime) != GrabSuccess)
 		return;
 
@@ -6142,10 +6130,6 @@ setup_screens(void)
 		/* set default colors */
 		setscreencolor("red", i + 1, SWM_S_COLOR_FOCUS);
 		setscreencolor("rgb:88/88/88", i + 1, SWM_S_COLOR_UNFOCUS);
-
-		/* set default cursor */
-		XDefineCursor(display, screens[i].root,
-		    XCreateFontCursor(display, XC_left_ptr));
 
 		/* init all workspaces */
 		/* XXX these should be dynamically allocated too */
