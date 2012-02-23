@@ -3253,43 +3253,6 @@ floating_toggle(struct swm_region *r, union arg *args)
 }
 
 void
-constrain_window(struct ws_win *win, struct swm_region *r, int resizable)
-{
-	if (X(win) + WIDTH(win) > X(r) + WIDTH(r) - border_width) {
-		if (resizable)
-			WIDTH(win) = X(r) + WIDTH(r) - X(win) - border_width;
-		else
-			X(win) = X(r) + WIDTH(r) - WIDTH(win) - border_width;
-	}
-
-	if (X(win) < X(r) - border_width) {
-		if (resizable)
-			WIDTH(win) -= X(r) - X(win) - border_width;
-
-		X(win) = X(r) - border_width;
-	}
-
-	if (Y(win) + HEIGHT(win) > Y(r) + HEIGHT(r) - border_width) {
-		if (resizable)
-			HEIGHT(win) = Y(r) + HEIGHT(r) - Y(win) - border_width;
-		else
-			Y(win) = Y(r) + HEIGHT(r) - HEIGHT(win) - border_width;
-	}
-
-	if (Y(win) < Y(r) - border_width) {
-		if (resizable)
-			HEIGHT(win) -= Y(r) - Y(win) - border_width;
-
-		Y(win) = Y(r) - border_width;
-	}
-
-	if (WIDTH(win) < 1)
-		WIDTH(win) = 1;
-	if (HEIGHT(win) < 1)
-		HEIGHT(win) = 1;
-}
-
-void
 update_window(struct ws_win *win)
 {
 	unsigned int		mask;
@@ -3366,7 +3329,6 @@ resize(struct ws_win *win, union arg *args)
 		break;
 	}
 	if (resize_step) {
-		constrain_window(win, r, 1);
 		update_window(win);
 		store_float_geom(win,r);
 		return;
@@ -3412,8 +3374,6 @@ resize(struct ws_win *win, union arg *args)
 				dx = 1 - g.w;
 			X(win) = g.x;
 			WIDTH(win) = g.w + dx;
-
-			constrain_window(win, r, 1);
 
 			/* not free, don't sync more than 120 times / second */
 			if ((ev.xmotion.time - time) > (1000 / 120) ) {
@@ -3508,7 +3468,6 @@ move(struct ws_win *win, union arg *args)
 		break;
 	}
 	if (move_step) {
-		constrain_window(win, r, 0);
 		update_window(win);
 		store_float_geom(win, r);
 		return;
@@ -3535,8 +3494,6 @@ move(struct ws_win *win, union arg *args)
 		case MotionNotify:
 			X(win) = ev.xmotion.x_root - wx - border_width;
 			Y(win) = ev.xmotion.y_root - wy - border_width;
-
-			constrain_window(win, r, 0);
 
 			/* not free, don't sync more than 120 times / second */
 			if ((ev.xmotion.time - time) > (1000 / 120) ) {
