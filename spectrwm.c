@@ -1031,7 +1031,6 @@ void			buttonpress(XEvent *);
 void			configurerequest(XEvent *);
 void			configurenotify(XEvent *);
 void			destroynotify(XEvent *);
-void			focusevent(XEvent *);
 void			mapnotify(XEvent *);
 void			mappingnotify(XEvent *);
 void			maprequest(XEvent *);
@@ -1047,8 +1046,6 @@ void			(*handler[LASTEvent])(XEvent *) = {
 				[ConfigureRequest] = configurerequest,
 				[ConfigureNotify] = configurenotify,
 				[DestroyNotify] = destroynotify,
-				[FocusIn] = focusevent,
-				[FocusOut] = focusevent,
 				[MapNotify] = mapnotify,
 				[MappingNotify] = mappingnotify,
 				[MapRequest] = maprequest,
@@ -5364,50 +5361,6 @@ destroynotify(XEvent *e)
 
 /* lets us use one switch statement for arbitrary mode/detail combinations */
 #define MERGE_MEMBERS(a,b)	(((a & 0xffff) << 16) | (b & 0xffff))
-
-void
-focusevent(XEvent *e)
-{
-#if 0
-	struct ws_win		*win;
-	u_int32_t		mode_detail;
-	XFocusChangeEvent	*ev = &e->xfocus;
-
-	DNPRINTF(SWM_D_EVENT, "focusevent: %s window: 0x%lx mode: %d "
-	    "detail: %d\n", ev->type == FocusIn ? "entering" : "leaving",
-	    ev->window, ev->mode, ev->detail);
-
-	if (last_focus_event == ev->type) {
-		DNPRINTF(SWM_D_FOCUS, "ignoring focusevent: bad ordering\n");
-		return;
-	}
-
-	last_focus_event = ev->type;
-	mode_detail = MERGE_MEMBERS(ev->mode, ev->detail);
-
-	switch (mode_detail) {
-	/* synergy client focus operations */
-	case MERGE_MEMBERS(NotifyNormal, NotifyNonlinear):
-	case MERGE_MEMBERS(NotifyNormal, NotifyNonlinearVirtual):
-
-	/* synergy server focus operations */
-	case MERGE_MEMBERS(NotifyWhileGrabbed, NotifyNonlinear):
-
-	/* Entering applications like rdesktop that mangle the pointer */
-	case MERGE_MEMBERS(NotifyNormal, NotifyPointer):
-
-		if ((win = find_window(e->xfocus.window)) != NULL && win->ws->r)
-			XSetWindowBorder(display, win->id,
-			    win->ws->r->s->c[ev->type == FocusIn ?
-			    SWM_S_COLOR_FOCUS : SWM_S_COLOR_UNFOCUS].color);
-		break;
-	default:
-		warnx("ignoring focusevent");
-		DNPRINTF(SWM_D_FOCUS, "ignoring focusevent\n");
-		break;
-	}
-#endif
-}
 
 void
 mapnotify(XEvent *e)
