@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2012 Jacob Courtneay <jacob@sporkexec.com>
  * Copyright (c) 2011 Conformal Systems LLC <info@conformal.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -15,18 +16,18 @@
  */
 
 
-#ifndef SPECTRWM_VERSION_H
-#define SPECTRWM_VERSION_H
+#ifndef SSCROTWM_VERSION_H
+#define SSCROTWM_VERSION_H
 
-#define SPECTRWM_STR(x)		#x
-#define SPECTRWM_STRINGIZE(x)	SPECTRWM_STR(x)
+#define SSCROTWM_STR(x)		#x
+#define SSCROTWM_STRINGIZE(x)	SSCROTWM_STR(x)
 
-#define SPECTRWM_MAJOR		1
-#define SPECTRWM_MINOR		0
-#define SPECTRWM_PATCH		0
-#define SPECTRWM_VERSION		SPECTRWM_STRINGIZE(SPECTRWM_MAJOR) "." \
-				SPECTRWM_STRINGIZE(SPECTRWM_MINOR) "." \
-				SPECTRWM_STRINGIZE(SPECTRWM_PATCH)
+#define SSCROTWM_MAJOR		1
+#define SSCROTWM_MINOR		0
+#define SSCROTWM_PATCH		0
+#define SSCROTWM_VERSION		SSCROTWM_STRINGIZE(SSCROTWM_MAJOR) "." \
+				SSCROTWM_STRINGIZE(SSCROTWM_MINOR) "." \
+				SSCROTWM_STRINGIZE(SSCROTWM_PATCH)
 
-#endif /* SPECTRWM_VERSION_H */
+#endif /* SSCROTWM_VERSION_H */
 

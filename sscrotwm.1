@@ -1,3 +1,4 @@
+.\" Copyright (c) 2012 Jacob Courtneay <jacob@sporkexec.com>
 .\" Copyright (c) 2009 Marco Peereboom <marco@peereboom.us>
 .\" Copyright (c) 2009 Darrin Chandler <dwchandler@stilyagin.com>
 .\"
@@ -14,26 +15,29 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .Dd $Mdocdate: February 15 2012 $
-.Dt SPECTRWM 1
+.Dt SSCROTWM 1
 .Os
 .Sh NAME
-.Nm spectrwm
+.Nm sscrotwm
 .Nd window manager for X11
 .Sh SYNOPSIS
-.Nm spectrwm
+.Nm sscrotwm
 .Sh DESCRIPTION
 .Nm
-is a minimalistic window manager that tries to stay out of the way so that
-valuable screen real estate can be used for much more important stuff.
+(Shriveled scrotwm) is a minimalistic window manager that tries to stay out of
+the way so that valuable screen real estate can be used for much more important
+stuff.
 It has sane defaults and does not require one to learn a language to do any
 configuration.
 It was written by hackers for hackers and it strives to be small, compact and
 fast.
+It was forked from scrotwm when it became too bloaty and when the authors
+decided on an unfortunate name change to spectrwm due to butthurt users.
 .Pp
 When
 .Nm
 starts up, it reads settings from its configuration file,
-.Pa spectrwm.conf .
+.Pa sscrotwm.conf .
 See the
 .Sx CONFIGURATION FILES
 section below.
@@ -62,10 +66,10 @@ section below for defaults and customizations.
 .Sh CONFIGURATION FILES
 .Nm
 first tries to open the user specific file,
-.Pa ~/.spectrwm.conf .
+.Pa ~/.sscrotwm.conf .
 If that file is unavailable,
 it then tries to open the global configuration file
-.Pa /etc/spectrwm.conf .
+.Pa /etc/sscrotwm.conf .
 .Pp
 The format of the file is \*(Ltkeyword\*(Gt = \*(Ltsetting\*(Gt.
 For example:
@@ -199,7 +203,7 @@ is zero or more arguments to the program.
 .Pp
 Example:
 .Bd -literal -offset indent
-program[ff] = /usr/local/bin/firefox http://spectrwm.org/
+program[ff] = /usr/local/bin/firefox http://github.com/
 bind[ff] = Mod+Shift+b # Now Mod+Shift+B launches firefox
 .Ed
 .Pp
@@ -657,22 +661,26 @@ Sending
 .Nm
 a HUP signal will restart it.
 .Sh FILES
-.Bl -tag -width "/etc/spectrwm.confXXX" -compact
-.It Pa ~/.spectrwm.conf
+.Bl -tag -width "/etc/sscrotwm.confXXX" -compact
+.It Pa ~/.sscrotwm.conf
 .Nm
 user specific settings.
-.It Pa /etc/spectrwm.conf
+.It Pa /etc/sscrotwm.conf
 .Nm
 global settings.
 .El
 .Sh HISTORY
 .Nm
-was inspired by xmonad & dwm.
+was forked from scrotwm, which was inspired by xmonad & dwm.
 .Sh AUTHORS
 .An -nosplit
 .Nm
 was written by:
+.Bl -tag -width "Jacob Courtneay Aq jacob@sporkexec.com " -offset indent -compact
+.It Cm Jacob Courtneay Aq jacob@sporkexec.com
+.El
 .Pp
+scrotwm was written by:
 .Bl -tag -width "Ryan Thomas McBride Aq mcbride@countersiege.com " -offset indent -compact
 .It Cm Marco Peereboom Aq marco@peereboom.us
 .It Cm Ryan Thomas McBride Aq mcbride@countersiege.com

@@ -7,7 +7,7 @@
 #   - Tags the release
 #   - Creates a release tarball
 
-PROJECT=spectrwm
+PROJECT=sscrotwm
 PROJECT_UC=$(echo $PROJECT | tr '[:lower:]' '[:upper:]')
 SCRIPT=$(basename $0)
 HEADER=version.h

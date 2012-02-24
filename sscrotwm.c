@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2012 Jacob Courtneay <jacob@sporkexec.com>
  * Copyright (c) 2009-2012 Marco Peereboom <marco@peereboom.us>
  * Copyright (c) 2009-2011 Ryan McBride <mcbride@countersiege.com>
  * Copyright (c) 2009 Darrin Chandler <dwchandler@stilyagin.com>
@@ -100,10 +101,10 @@
 
 #include "version.h"
 
-#ifdef SPECTRWM_BUILDSTR
-static const char	*buildstr = SPECTRWM_BUILDSTR;
+#ifdef SSCROTWM_BUILDSTR
+static const char	*buildstr = SSCROTWM_BUILDSTR;
 #else
-static const char	*buildstr = SPECTRWM_VERSION;
+static const char	*buildstr = SSCROTWM_VERSION;
 #endif
 
 #if RANDR_MAJOR < 1
@@ -3946,7 +3947,7 @@ setup_quirks(void)
 }
 
 /* conf file stuff */
-#define SWM_CONF_FILE		"spectrwm.conf"
+#define SWM_CONF_FILE		"sscrotwm.conf"
 #define SWM_CONF_FILE_OLD	"scrotwm.conf"
 
 enum	{
@@ -5307,7 +5308,7 @@ main(int argc, char *argv[])
 	struct sigaction	sact;
 
 	start_argv = argv;
-	warnx("Welcome to spectrwm V%s Build: %s", SPECTRWM_VERSION, buildstr);
+	warnx("Welcome to sscrotwm V%s Build: %s", SSCROTWM_VERSION, buildstr);
 	if (!setlocale(LC_CTYPE, "") || !setlocale(LC_TIME, "") ||
 	    !XSupportsLocale())
 		warnx("no locale support");

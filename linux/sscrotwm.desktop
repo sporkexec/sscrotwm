@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=sscrotwm
+Comment=The sscrotwm window manager
+Type=Application
+Exec=/usr/bin/sscrotwm
+TryExec=/usr/bin/sscrotwm

@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2012 Jacob Courtneay <jacob@sporkexec.com>
  * Copyright (c) 2009 Marco Peereboom <marco@peereboom.us>
  * Copyright (c) 2009 Ryan McBride <mcbride@countersiege.com>
  *
