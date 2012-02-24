@@ -51,7 +51,6 @@
 
 /* dlopened libs so we can find the symbols in the real one to call them */
 static void		*lib_xlib = NULL;
-static void		*lib_xtlib = NULL;
 
 static Window		root = None;
 static Display		*dpy = NULL;
