@@ -2314,17 +2314,15 @@ stack_floater(struct ws_win *win, struct swm_region *r)
 	}
 
 	/* win can be outside r if new r smaller than old r */
-	/* Ensure top left corner inside r (move probs otherwise) */
-	if (X(win) < X(r) - wc.border_width)
-		X(win) = X(r) - wc.border_width;
-	if (X(win) > X(r) + WIDTH(r) - 1)
-		X(win) = (WIDTH(win) > WIDTH(r)) ? X(r) :
-		    (X(r) + WIDTH(r) - WIDTH(win) - 2 * wc.border_width);
-	if (Y(win) < Y(r) - wc.border_width)
-		Y(win) = Y(r) - wc.border_width;
-	if (Y(win) > Y(r) + HEIGHT(r) - 1)
-		Y(win) = (HEIGHT(win) > HEIGHT(r)) ? Y(r) :
-		    (Y(r) + HEIGHT(r) - HEIGHT(win) - 2 * wc.border_width);
+	/* Ensure horizontal and vertical border inside r */
+	if (X(win) > X(r)+WIDTH(r) - wc.border_width)
+		X(win) = X(r)+WIDTH(r) - wc.border_width;
+	if (X(win) < X(r) - WIDTH(win) - 2*wc.border_width + 1)
+		X(win) = X(r) - WIDTH(win) - 2*wc.border_width + 1;
+	if (Y(win) > Y(r)+HEIGHT(r) - wc.border_width)
+		Y(win) = Y(r)+HEIGHT(r) - wc.border_width;
+	if (Y(win) < Y(r) - HEIGHT(win) - 2*wc.border_width + 1)
+		Y(win) = Y(r) - HEIGHT(win) - 2*wc.border_width + 1;
 
 	wc.x = X(win);
 	wc.y = Y(win);
@@ -3410,6 +3408,7 @@ move(struct ws_win *win, union arg *args)
 	if (move_step) {
 		update_window(win);
 		store_float_geom(win, r);
+		stack();
 		return;
 	}
 
