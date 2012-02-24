@@ -197,7 +197,6 @@ Atom			a_wmname;
 Atom			a_netwmname;
 Atom			a_utf8_string;
 Atom			a_string;
-Atom			a_swm_iconic;
 volatile sig_atomic_t   running = 1;
 volatile sig_atomic_t   restart_wm = 0;
 int			outputs = 0;
@@ -274,7 +273,6 @@ struct ws_win {
 	int			floatmaxed;	/* whether maxed by max_stack */
 	int			floating;
 	int			manual;
-	int			iconic;
 	unsigned int		ewmh_flags;
 	int			last_inc;
 	int			can_delete;
@@ -516,52 +514,6 @@ get_property(Window id, Atom atom, long count, Atom type, unsigned long *nitems,
 		return False;
 
 	return True;
-}
-
-void
-update_iconic(struct ws_win *win, int newv)
-{
-	int32_t v = newv;
-	Atom iprop;
-
-	win->iconic = newv;
-
-	iprop = XInternAtom(display, "_SWM_ICONIC", False);
-	if (!iprop)
-		return;
-	if (newv)
-		XChangeProperty(display, win->id, iprop, XA_INTEGER, 32,
-		    PropModeReplace, (unsigned char *)&v, 1);
-	else
-		XDeleteProperty(display, win->id, iprop);
-}
-
-int
-get_iconic(struct ws_win *win)
-{
-	int32_t v = 0;
-	int retfmt, status;
-	Atom iprop, rettype;
-	unsigned long nitems, extra;
-	unsigned char *prop = NULL;
-
-	iprop = XInternAtom(display, "_SWM_ICONIC", False);
-	if (!iprop)
-		goto out;
-	status = XGetWindowProperty(display, win->id, iprop, 0L, 1L,
-	    False, XA_INTEGER, &rettype, &retfmt, &nitems, &extra, &prop);
-	if (status != Success)
-		goto out;
-	if (rettype != XA_INTEGER || retfmt != 32)
-		goto out;
-	if (nitems != 1)
-		goto out;
-	v = *((int32_t *)prop);
-
-out:
-	if (prop != NULL)
-		XFree(prop);
-	return (v);
 }
 
 void
@@ -1324,8 +1276,6 @@ count_win(struct workspace *ws, int count_transient)
 			continue;
 		if (count_transient == 0 && win->transient)
 			continue;
-		if (win->iconic)
-			continue;
 		count++;
 	}
 	DNPRINTF(SWM_D_MISC, "count_win: %d\n", count);
@@ -2064,7 +2014,6 @@ focus(struct swm_region *r, union arg *args)
 	struct ws_win		*cur_focus = NULL;
 	struct ws_win_list	*wl = NULL;
 	struct workspace	*ws = NULL;
-	int			all_iconics;
 
 	if (!(r && r->ws))
 		return;
@@ -2073,14 +2022,13 @@ focus(struct swm_region *r, union arg *args)
 
 	/* treat FOCUS_CUR special */
 	if (args->id == SWM_ARG_ID_FOCUSCUR) {
-		if (r->ws->focus && r->ws->focus->iconic == 0)
+		if (r->ws->focus)
 			winfocus = r->ws->focus;
-		else if (r->ws->focus_prev && r->ws->focus_prev->iconic == 0)
+		else if (r->ws->focus_prev)
 			winfocus = r->ws->focus_prev;
 		else
 			TAILQ_FOREACH(winfocus, &r->ws->winlist, entry)
-				if (winfocus->iconic == 0)
-					break;
+				break;
 
 		focus_magic(winfocus);
 		return;
@@ -2091,15 +2039,6 @@ focus(struct swm_region *r, union arg *args)
 	ws = r->ws;
 	wl = &ws->winlist;
 	if (TAILQ_EMPTY(wl))
-		return;
-	/* make sure there is at least one uniconified window */
-	all_iconics = 1;
-	TAILQ_FOREACH(winfocus, wl, entry)
-		if (winfocus->iconic == 0) {
-			all_iconics = 0;
-			break;
-		}
-	if (all_iconics)
 		return;
 
 	switch (args->id) {
@@ -2115,17 +2054,6 @@ focus(struct swm_region *r, union arg *args)
 			winfocus = head;
 		}
 
-		/* skip iconics */
-		if (winfocus && winfocus->iconic) {
-			while (winfocus != cur_focus) {
-				if (winfocus == NULL)
-					winfocus = TAILQ_LAST(wl, ws_win_list);
-				if (winfocus->iconic == 0)
-					break;
-				winfocus = TAILQ_PREV(winfocus, ws_win_list,
-				    entry);
-			}
-		}
 		break;
 
 	case SWM_ARG_ID_FOCUSNEXT:
@@ -2134,16 +2062,6 @@ focus(struct swm_region *r, union arg *args)
 			head = TAILQ_FIRST(wl);
 		winfocus = head;
 
-		/* skip iconics */
-		if (winfocus && winfocus->iconic) {
-			while (winfocus != cur_focus) {
-				if (winfocus == NULL)
-					winfocus = TAILQ_FIRST(wl);
-				if (winfocus->iconic == 0)
-					break;
-				winfocus = TAILQ_NEXT(winfocus, entry);
-			}
-		}
 		break;
 
 	case SWM_ARG_ID_FOCUSMAIN:
@@ -2338,8 +2256,7 @@ stack_master(struct workspace *ws, struct swm_geometry *g, int rot, int flip)
 		return;
 
 	TAILQ_FOREACH(win, &ws->winlist, entry)
-		if (win->transient == 0 && win->floating == 0
-		    && win->iconic == 0)
+		if (win->transient == 0 && win->floating == 0)
 			break;
 
 	if (win == NULL)
@@ -2397,8 +2314,6 @@ stack_master(struct workspace *ws, struct swm_geometry *g, int rot, int flip)
 	i = j = 0, s = stacks;
 	TAILQ_FOREACH(win, &ws->winlist, entry) {
 		if (win->transient != 0 || win->floating != 0)
-			continue;
-		if (win->iconic != 0)
 			continue;
 
 		if (win->ewmh_flags & EWMH_F_FULLSCREEN) {
@@ -2499,8 +2414,6 @@ notiles:
 	/* now, stack all the floaters and transients */
 	TAILQ_FOREACH(win, &ws->winlist, entry) {
 		if (win->transient == 0 && win->floating == 0)
-			continue;
-		if (win->iconic == 1)
 			continue;
 		if (win->ewmh_flags & EWMH_F_FULLSCREEN) {
 			fs_win = win;
@@ -2757,21 +2670,6 @@ raise_toggle(struct swm_region *r, union arg *args)
 		stack();
 }
 
-void
-iconify(struct swm_region *r, union arg *args)
-{
-	union arg a;
-
-	if (r->ws->focus == NULL)
-		return;
-	unmap_window(r->ws->focus);
-	update_iconic(r->ws->focus, 1);
-	stack();
-	r->ws->focus = NULL;
-	a.id = SWM_ARG_ID_FOCUSCUR;
-	focus(r, &a);
-}
-
 unsigned char *
 get_win_name(Window win)
 {
@@ -2795,42 +2693,6 @@ get_win_name(Window win)
 		return (prop);
 
 	return (NULL);
-}
-
-void
-uniconify(struct swm_region *r, union arg *args)
-{
-	struct ws_win		*win;
-	unsigned char		*name;
-	int			count = 0;
-
-	DNPRINTF(SWM_D_MISC, "uniconify\n");
-
-	if (r == NULL || r->ws == NULL)
-		return;
-
-	/* make sure we have anything to uniconify */
-	TAILQ_FOREACH(win, &r->ws->winlist, entry) {
-		if (win->ws == NULL)
-			continue; /* should never happen */
-		if (win->iconic == 0)
-			continue;
-		count++;
-	}
-	if (count == 0)
-		return;
-
-	TAILQ_FOREACH(win, &r->ws->winlist, entry) {
-		if (win->ws == NULL)
-			continue; /* should never happen */
-		if (win->iconic == 0)
-			continue;
-
-		name = get_win_name(win->id);
-		if (name == NULL)
-			continue;
-		XFree(name);
-	}
 }
 
 void
@@ -3241,8 +3103,6 @@ enum keyfuncid {
 	kf_spawn_lock,
 	kf_spawn_initscr,
 	kf_spawn_custom,
-	kf_iconify,
-	kf_uniconify,
 	kf_raise_toggle,
 	kf_button2,
 	kf_width_shrink,
@@ -3329,8 +3189,6 @@ struct keyfunc {
 	{ "spawn_lock",		legacyfunc,	{0} },
 	{ "spawn_initscr",	legacyfunc,	{0} },
 	{ "spawn_custom",	dummykeyfunc,	{0} },
-	{ "iconify",		iconify,	{0} },
-	{ "uniconify",		uniconify,	{0} },
 	{ "raise_toggle",	raise_toggle,	{0} },
 	{ "button2",		pressbutton,	{2} },
 	{ "width_shrink",	resize_step,	{.id = SWM_ARG_ID_WIDTHSHRINK} },
@@ -3854,8 +3712,6 @@ setup_keys(void)
 	setkeybinding(MODKEY,		XK_t,		kf_float_toggle,NULL);
 	setkeybinding(MODKEY|ShiftMask,	XK_Delete,	kf_spawn_custom,"lock");
 	setkeybinding(MODKEY|ShiftMask,	XK_i,		kf_spawn_custom,"initscr");
-	setkeybinding(MODKEY,		XK_w,		kf_iconify,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_w,		kf_uniconify,	NULL);
 	setkeybinding(MODKEY|ShiftMask,	XK_r,		kf_raise_toggle,NULL);
 	setkeybinding(MODKEY,		XK_v,		kf_button2,	NULL);
 	setkeybinding(MODKEY,		XK_equal,	kf_width_grow,	NULL);
@@ -4672,8 +4528,6 @@ manage_window(Window id)
 			XFree(prot);
 	}
 
-	win->iconic = get_iconic(win);
-
 	/*
 	 * Figure out where to put the window. If it was previously assigned to
 	 * a workspace (either by spawn() or manually moving), and isn't
@@ -5077,14 +4931,6 @@ propertynotify(XEvent *e)
 	win = find_window(ev->window);
 	if (win == NULL)
 		return;
-
-	if (ev->state == PropertyDelete && ev->atom == a_swm_iconic) {
-		update_iconic(win, 0);
-		XMapRaised(display, win->id);
-		stack();
-		focus_win(win);
-		return;
-	}
 }
 
 void
@@ -5559,7 +5405,6 @@ main(int argc, char *argv[])
 	a_netwmname = XInternAtom(display, "_NET_WM_NAME", False);
 	a_utf8_string = XInternAtom(display, "UTF8_STRING", False);
 	a_string = XInternAtom(display, "STRING", False);
-	a_swm_iconic = XInternAtom(display, "_SWM_ICONIC", False);
 
 	/* look for local and global conf file */
 	pwd = getpwuid(getuid());
