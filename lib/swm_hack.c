@@ -54,7 +54,6 @@ static void		*lib_xlib = NULL;
 static void		*lib_xtlib = NULL;
 
 static Window		root = None;
-static int		xterm = 0;
 static Display		*dpy = NULL;
 
 /* Find our root window */
@@ -149,10 +148,6 @@ XCreateWindow(Display * display, Window parent, int x, int y,
 			set_property(display, id, "_SWM_WS", env);
 		if ((env = getenv("_SWM_PID")) != NULL)
 			set_property(display, id, "_SWM_PID", env);
-		if ((env = getenv("_SWM_XTERM_FONTADJ")) != NULL) {
-			unsetenv("_SWM_XTERM_FONTADJ");
-			xterm = 1;
-		}
 	}
 	return (id);
 }
@@ -192,10 +187,6 @@ XCreateSimpleWindow(Display * display, Window parent, int x, int y,
 			set_property(display, id, "_SWM_WS", env);
 		if ((env = getenv("_SWM_PID")) != NULL)
 			set_property(display, id, "_SWM_PID", env);
-		if ((env = getenv("_SWM_XTERM_FONTADJ")) != NULL) {
-			unsetenv("_SWM_XTERM_FONTADJ");
-			xterm = 1;
-		}
 	}
 	return (id);
 }
@@ -219,45 +210,4 @@ XReparentWindow(Display * display, Window window, Window parent, int x, int y)
 		parent = MyRoot(display);
 
 	return (*func) (display, window, parent, x, y);
-}
-
-typedef		void (ANEF) (XtAppContext app_context, XEvent *event_return);
-int		evcount = 0;
-
-/*
- * XtAppNextEvent Intercept Hack
- * Normally xterm rejects "synthetic" (XSendEvent) events to prevent spoofing.
- * We don't want to disable this completely, it's insecure. But hook here
- * and allow these mostly harmless ones that we use to adjust fonts.
- */
-void
-XtAppNextEvent(XtAppContext app_context, XEvent *event_return)
-{
-	static ANEF	*func = NULL;
-	static int	kp_add = 0, kp_subtract = 0;
-
-	/* find the real Xlib and the real X function */
-	if (!lib_xtlib)
-		lib_xtlib = dlopen("libXt.so", RTLD_GLOBAL | RTLD_LAZY);
-	if (!func) {
-		func = (ANEF *) dlsym(lib_xtlib, "XtAppNextEvent");
-		if (dpy != NULL) {
-			kp_add = XKeysymToKeycode(dpy, XK_KP_Add);
-			kp_subtract = XKeysymToKeycode(dpy, XK_KP_Subtract);
-		}
-	}
-
-	(*func) (app_context, event_return);
-
-	/* Return here if it's not an Xterm. */
-	if (!xterm)
-		return;
-	
-	/* Allow spoofing of font change keystrokes. */
-	if ((event_return->type == KeyPress ||  
-	   event_return->type == KeyRelease) &&
-	   event_return->xkey.state == ShiftMask &&
-	   (event_return->xkey.keycode == kp_add ||
-	   event_return->xkey.keycode == kp_subtract))
-		event_return->xkey.send_event = 0;
 }
