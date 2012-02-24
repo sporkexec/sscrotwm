@@ -211,7 +211,6 @@ Display			*display;
 
 int			cycle_empty = 0;
 int			cycle_visible = 0;
-int			term_width = 0;
 unsigned int		mod_key = MODKEY;
 
 /* dialog windows */
@@ -224,13 +223,8 @@ double			dialog_ratio = 0.6;
 #endif
 
 int			stack_enabled = 1;
-int			urgent_enabled = 0;
-int			title_name_enabled = 0;
-int			title_class_enabled = 0;
-int			window_name_enabled = 0;
 int			disable_border = 0;
 int			border_width = 1;
-int			verbose_layout = 0;
 char			*spawn_term[] = { NULL, NULL }; /* XXX fully dynamic */
 struct passwd		*pwd;
 
@@ -3728,37 +3722,6 @@ setup_keys(void)
 }
 
 void
-clear_keys(void)
-{
-	struct key		*kp;
-
-	while (RB_EMPTY(&keys) == 0) {
-		kp = RB_ROOT(&keys);
-		key_remove(kp);
-	}
-}
-
-int
-setkeymapping(char *selector, char *value, int flags)
-{
-	char			keymapping_file[PATH_MAX];
-	DNPRINTF(SWM_D_KEY, "setkeymapping: enter\n");
-	if (value[0] == '~')
-		snprintf(keymapping_file, sizeof keymapping_file, "%s/%s",
-		    pwd->pw_dir, &value[1]);
-	else
-		strncpy(keymapping_file, value, sizeof keymapping_file);
-	clear_keys();
-	/* load new key bindings; if it fails, revert to default bindings */
-	if (conf_load(keymapping_file, SWM_CONF_KEYMAPPING)) {
-		clear_keys();
-		setup_keys();
-	}
-	DNPRINTF(SWM_D_KEY, "setkeymapping: leave\n");
-	return (0);
-}
-
-void
 updatenumlockmask(void)
 {
 	unsigned int		i, j;
@@ -3989,12 +3952,9 @@ setup_quirks(void)
 enum	{
 	  SWM_S_STACK_ENABLED,
 	  SWM_S_CYCLE_EMPTY, SWM_S_CYCLE_VISIBLE, SWM_S_SS_ENABLED,
-	  SWM_S_TERM_WIDTH, SWM_S_TITLE_CLASS_ENABLED,
-	  SWM_S_TITLE_NAME_ENABLED, SWM_S_WINDOW_NAME_ENABLED, SWM_S_URGENT_ENABLED,
 	  SWM_S_DISABLE_BORDER, SWM_S_BORDER_WIDTH,
 	  SWM_S_SPAWN_TERM,
-	  SWM_S_SS_APP, SWM_S_DIALOG_RATIO,
-	  SWM_S_VERBOSE_LAYOUT
+	  SWM_S_SS_APP, SWM_S_DIALOG_RATIO
 	};
 
 int
@@ -4012,21 +3972,6 @@ setconfvalue(char *selector, char *value, int flags)
 		break;
 	case SWM_S_SS_ENABLED:
 		ss_enabled = atoi(value);
-		break;
-	case SWM_S_TERM_WIDTH:
-		term_width = atoi(value);
-		break;
-	case SWM_S_TITLE_CLASS_ENABLED:
-		title_class_enabled = atoi(value);
-		break;
-	case SWM_S_WINDOW_NAME_ENABLED:
-		window_name_enabled = atoi(value);
-		break;
-	case SWM_S_TITLE_NAME_ENABLED:
-		title_name_enabled = atoi(value);
-		break;
-	case SWM_S_URGENT_ENABLED:
-		urgent_enabled = atoi(value);
 		break;
 	case SWM_S_DISABLE_BORDER:
 		disable_border = atoi(value);
@@ -4220,7 +4165,6 @@ struct config_option {
 	int			funcflags;
 };
 struct config_option configopt[] = {
-	{ "keyboard_mapping",		setkeymapping,	0 },
 	{ "bind",			setconfbinding,	0 },
 	{ "stack_enabled",		setconfvalue,	SWM_S_STACK_ENABLED },
 	{ "color_focus",		setconfcolor,	SWM_S_COLOR_FOCUS },
@@ -4228,7 +4172,6 @@ struct config_option configopt[] = {
 	{ "cycle_empty",		setconfvalue,	SWM_S_CYCLE_EMPTY },
 	{ "cycle_visible",		setconfvalue,	SWM_S_CYCLE_VISIBLE },
 	{ "dialog_ratio",		setconfvalue,	SWM_S_DIALOG_RATIO },
-	{ "verbose_layout",		setconfvalue,	SWM_S_VERBOSE_LAYOUT },
 	{ "modkey",			setconfmodkey,	0 },
 	{ "program",			setconfspawn,	0 },
 	{ "quirk",			setconfquirk,	0 },
@@ -4236,11 +4179,6 @@ struct config_option configopt[] = {
 	{ "spawn_term",			setconfvalue,	SWM_S_SPAWN_TERM },
 	{ "screenshot_enabled",		setconfvalue,	SWM_S_SS_ENABLED },
 	{ "screenshot_app",		setconfvalue,	SWM_S_SS_APP },
-	{ "window_name_enabled",	setconfvalue,	SWM_S_WINDOW_NAME_ENABLED },
-	{ "urgent_enabled",		setconfvalue,	SWM_S_URGENT_ENABLED },
-	{ "term_width",			setconfvalue,	SWM_S_TERM_WIDTH },
-	{ "title_class_enabled",	setconfvalue,	SWM_S_TITLE_CLASS_ENABLED },
-	{ "title_name_enabled",		setconfvalue,	SWM_S_TITLE_NAME_ENABLED },
 	{ "disable_border",		setconfvalue,	SWM_S_DISABLE_BORDER },
 	{ "border_width",		setconfvalue,	SWM_S_BORDER_WIDTH },
 	{ "autorun",			setautorun,	0 },
