@@ -215,34 +215,6 @@ int			cycle_visible = 0;
 int			term_width = 0;
 unsigned int		mod_key = MODKEY;
 
-/* dmenu search */
-struct swm_region	*search_r;
-int			select_list_pipe[2];
-int			select_resp_pipe[2];
-pid_t			searchpid;
-volatile sig_atomic_t	search_resp;
-int			search_resp_action;
-
-struct search_window {
-	TAILQ_ENTRY(search_window)	entry;
-	int				idx;
-	struct ws_win			*win;
-	GC				gc;
-	Window				indicator;
-};
-TAILQ_HEAD(search_winlist, search_window);
-
-struct search_winlist search_wl;
-
-/* search actions */
-enum {
-	SWM_SEARCH_NONE,
-	SWM_SEARCH_UNICONIFY,
-	SWM_SEARCH_NAME_WORKSPACE,
-	SWM_SEARCH_SEARCH_WORKSPACE,
-	SWM_SEARCH_SEARCH_WINDOW
-};
-
 /* dialog windows */
 double			dialog_ratio = 0.6;
 
@@ -521,7 +493,6 @@ struct ewmh_hint {
 
 void		 store_float_geom(struct ws_win *, struct swm_region *);
 int		 floating_toggle_win(struct ws_win *);
-void		 spawn_select(struct swm_region *, union arg *, char *, int *);
 unsigned char	*get_win_name(Window);
 
 int
@@ -1073,8 +1044,6 @@ sighdlr(int sig)
 #endif /* SWM_DEBUG */
 				break;
 			}
-			if (pid == searchpid)
-				search_resp = 1;
 
 #ifdef SWM_DEBUG
 			if (WIFEXITED(status)) {
@@ -2832,7 +2801,6 @@ void
 uniconify(struct swm_region *r, union arg *args)
 {
 	struct ws_win		*win;
-	FILE			*lfile;
 	unsigned char		*name;
 	int			count = 0;
 
@@ -2852,14 +2820,6 @@ uniconify(struct swm_region *r, union arg *args)
 	if (count == 0)
 		return;
 
-	search_r = r;
-	search_resp_action = SWM_SEARCH_UNICONIFY;
-
-	spawn_select(r, args, "search", &searchpid);
-
-	if ((lfile = fdopen(select_list_pipe[1], "w")) == NULL)
-		return;
-
 	TAILQ_FOREACH(win, &r->ws->winlist, entry) {
 		if (win->ws == NULL)
 			continue; /* should never happen */
@@ -2869,254 +2829,8 @@ uniconify(struct swm_region *r, union arg *args)
 		name = get_win_name(win->id);
 		if (name == NULL)
 			continue;
-		fprintf(lfile, "%s.%lu\n", name, win->id);
 		XFree(name);
 	}
-
-	fclose(lfile);
-}
-
-void
-name_workspace(struct swm_region *r, union arg *args)
-{
-	FILE			*lfile;
-
-	DNPRINTF(SWM_D_MISC, "name_workspace\n");
-
-	if (r == NULL)
-		return;
-
-	search_r = r;
-	search_resp_action = SWM_SEARCH_NAME_WORKSPACE;
-
-	spawn_select(r, args, "name_workspace", &searchpid);
-
-	if ((lfile = fdopen(select_list_pipe[1], "w")) == NULL)
-		return;
-
-	fprintf(lfile, "%s", "");
-	fclose(lfile);
-}
-
-void
-search_workspace(struct swm_region *r, union arg *args)
-{
-	int			i;
-	struct workspace	*ws;
-	FILE			*lfile;
-
-	DNPRINTF(SWM_D_MISC, "search_workspace\n");
-
-	if (r == NULL)
-		return;
-
-	search_r = r;
-	search_resp_action = SWM_SEARCH_SEARCH_WORKSPACE;
-
-	spawn_select(r, args, "search", &searchpid);
-
-	if ((lfile = fdopen(select_list_pipe[1], "w")) == NULL)
-		return;
-
-	for (i = 0; i < SWM_WS_MAX; i++) {
-		ws = &r->s->ws[i];
-		if (ws == NULL)
-			continue;
-		fprintf(lfile, "%d%s%s\n", ws->idx + 1,
-		    (ws->name ? ":" : ""), (ws->name ? ws->name : ""));
-	}
-
-	fclose(lfile);
-}
-
-void
-search_win_cleanup(void)
-{
-	struct search_window	*sw = NULL;
-
-	while ((sw = TAILQ_FIRST(&search_wl)) != NULL) {
-		XDestroyWindow(display, sw->indicator);
-		XFreeGC(display, sw->gc);
-		TAILQ_REMOVE(&search_wl, sw, entry);
-		free(sw);
-	}
-}
-
-void
-search_resp_uniconify(char *resp, unsigned long len)
-{
-	unsigned char		*name;
-	struct ws_win		*win;
-	char			*s;
-
-	DNPRINTF(SWM_D_MISC, "search_resp_uniconify: resp: %s\n", resp);
-
-	TAILQ_FOREACH(win, &search_r->ws->winlist, entry) {
-		if (win->iconic == 0)
-			continue;
-		name = get_win_name(win->id);
-		if (name == NULL)
-			continue;
-		if (asprintf(&s, "%s.%lu", name, win->id) == -1) {
-			XFree(name);
-			continue;
-		}
-		XFree(name);
-		if (strncmp(s, resp, len) == 0) {
-			/* XXX this should be a callback to generalize */
-			update_iconic(win, 0);
-			free(s);
-			break;
-		}
-		free(s);
-	}
-}
-
-void
-search_resp_name_workspace(char *resp, unsigned long len)
-{
-	struct workspace	*ws;
-
-	DNPRINTF(SWM_D_MISC, "search_resp_name_workspace: resp: %s\n", resp);
-
-	if (search_r->ws == NULL)
-		return;
-	ws = search_r->ws;
-
-	if (ws->name) {
-		free(search_r->ws->name);
-		search_r->ws->name = NULL;
-	}
-
-	if (len > 1) {
-		ws->name = strdup(resp);
-		if (ws->name == NULL) {
-			DNPRINTF(SWM_D_MISC, "search_resp_name_workspace: "
-			    "strdup: %s", strerror(errno));
-			return;
-		}
-	}
-}
-
-void
-search_resp_search_workspace(char *resp, unsigned long len)
-{
-	char			*p, *q;
-	int			ws_idx;
-	const char		*errstr;
-	union arg		a;
-
-	DNPRINTF(SWM_D_MISC, "search_resp_search_workspace: resp: %s\n", resp);
-
-	q = strdup(resp);
-	if (!q) {
-		DNPRINTF(SWM_D_MISC, "search_resp_search_workspace: strdup: %s",
-		    strerror(errno));
-		return;
-	}
-	p = strchr(q, ':');
-	if (p != NULL)
-		*p = '\0';
-	ws_idx = strtonum(q, 1, SWM_WS_MAX, &errstr);
-	if (errstr) {
-		DNPRINTF(SWM_D_MISC, "workspace idx is %s: %s",
-		    errstr, q);
-		free(q);
-		return;
-	}
-	free(q);
-	a.id = ws_idx - 1;
-	switchws(search_r, &a);
-}
-
-void
-search_resp_search_window(char *resp, unsigned long len)
-{
-	char			*s;
-	int			idx;
-	const char		*errstr;
-	struct search_window	*sw;
-
-	DNPRINTF(SWM_D_MISC, "search_resp_search_window: resp: %s\n", resp);
-
-	s = strdup(resp);
-	if (!s) {
-		DNPRINTF(SWM_D_MISC, "search_resp_search_window: strdup: %s",
-		    strerror(errno));
-		return;
-	}
-
-	idx = strtonum(s, 1, INT_MAX, &errstr);
-	if (errstr) {
-		DNPRINTF(SWM_D_MISC, "window idx is %s: %s",
-		    errstr, s);
-		free(s);
-		return;
-	}
-	free(s);
-
-	TAILQ_FOREACH(sw, &search_wl, entry)
-		if (idx == sw->idx) {
-			focus_win(sw->win);
-			break;
-		}
-}
-
-#define MAX_RESP_LEN	1024
-
-void
-search_do_resp(void)
-{
-	ssize_t			rbytes;
-	char			*resp;
-	unsigned long		len;
-
-	DNPRINTF(SWM_D_MISC, "search_do_resp:\n");
-
-	search_resp = 0;
-	searchpid = 0;
-
-	if ((resp = calloc(1, MAX_RESP_LEN + 1)) == NULL) {
-		warn("search: calloc");
-		goto done;
-	}
-
-	rbytes = read(select_resp_pipe[0], resp, MAX_RESP_LEN);
-	if (rbytes <= 0) {
-		warn("search: read error");
-		goto done;
-	}
-	resp[rbytes] = '\0';
-
-	/* XXX:
-	 * Older versions of dmenu (Atleast pre 4.4.1) do not send a
-	 * newline, so work around that by sanitizing the resp now.
-	 */
-	resp[strcspn(resp, "\n")] = '\0';
-	len = strlen(resp);
-
-	switch (search_resp_action) {
-	case SWM_SEARCH_UNICONIFY:
-		search_resp_uniconify(resp, len);
-		break;
-	case SWM_SEARCH_NAME_WORKSPACE:
-		search_resp_name_workspace(resp, len);
-		break;
-	case SWM_SEARCH_SEARCH_WORKSPACE:
-		search_resp_search_workspace(resp, len);
-		break;
-	case SWM_SEARCH_SEARCH_WINDOW:
-		search_resp_search_window(resp, len);
-		break;
-	}
-
-done:
-	if (search_resp_action == SWM_SEARCH_SEARCH_WINDOW)
-		search_win_cleanup();
-
-	search_resp_action = SWM_SEARCH_NONE;
-	close(select_resp_pipe[0]);
-	free(resp);
 }
 
 void
@@ -3540,8 +3254,6 @@ enum keyfuncid {
 	kf_move_up,
 	kf_move_down,
 	kf_name_workspace,
-	kf_search_workspace,
-	kf_search_win,
 	kf_dumpwins, /* MUST BE LAST */
 	kf_invalid
 };
@@ -3629,8 +3341,6 @@ struct keyfunc {
 	{ "move_right",		move_step,	{.id = SWM_ARG_ID_MOVERIGHT} },
 	{ "move_up",		move_step,	{.id = SWM_ARG_ID_MOVEUP} },
 	{ "move_down",		move_step,	{.id = SWM_ARG_ID_MOVEDOWN} },
-	{ "name_workspace",	name_workspace,	{0} },
-	{ "search_workspace",	search_workspace,	{0} },
 	{ "dumpwins",		dumpwins,	{0} }, /* MUST BE LAST */
 	{ "invalid key func",	NULL,		{0} },
 };
@@ -3782,48 +3492,6 @@ spawn_custom(struct swm_region *r, union arg *args, char *spawn_name)
 }
 
 void
-spawn_select(struct swm_region *r, union arg *args, char *spawn_name, int *pid)
-{
-	union arg		a;
-	char			**real_args;
-	int			i, spawn_argc;
-
-	if ((spawn_argc = spawn_expand(r, args, spawn_name, &real_args)) < 0)
-		return;
-	a.argv = real_args;
-
-	if (pipe(select_list_pipe) == -1)
-		err(1, "pipe error");
-	if (pipe(select_resp_pipe) == -1)
-		err(1, "pipe error");
-
-	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
-		err(1, "could not disable SIGPIPE");
-	switch (*pid = fork()) {
-	case -1:
-		err(1, "cannot fork");
-		break;
-	case 0: /* child */
-		if (dup2(select_list_pipe[0], 0) == -1)
-			err(1, "dup2");
-		if (dup2(select_resp_pipe[1], 1) == -1)
-			err(1, "dup2");
-		close(select_list_pipe[1]);
-		close(select_resp_pipe[0]);
-		spawn(r->ws->idx, &a, 0);
-		break;
-	default: /* parent */
-		close(select_list_pipe[0]);
-		close(select_resp_pipe[1]);
-		break;
-	}
-
-	for (i = 0; i < spawn_argc; i++)
-		free(real_args[i]);
-	free(real_args);
-}
-
-void
 spawn_insert(char *name, char *args)
 {
 	char			*arg, *cp, *ptr;
@@ -3934,8 +3602,6 @@ setup_spawn(void)
 	setconfspawn("lock",		"xlock",		0);
 	setconfspawn("initscr",		"initscreen.sh",	0);
 	setconfspawn("menu",		"dmenu_run", 0);
-	setconfspawn("search",		"dmenu -i", 0);
-	setconfspawn("name_workspace",	"dmenu -p Workspace", 0);
 }
 
 /* key bindings */
@@ -4200,9 +3866,6 @@ setup_keys(void)
 	setkeybinding(MODKEY,		XK_bracketright,kf_move_right,	NULL);
 	setkeybinding(MODKEY|ShiftMask,	XK_bracketleft,	kf_move_up,	NULL);
 	setkeybinding(MODKEY|ShiftMask,	XK_bracketright,kf_move_down,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_slash,	kf_name_workspace,NULL);
-	setkeybinding(MODKEY,		XK_slash,	kf_search_workspace,NULL);
-	setkeybinding(MODKEY,		XK_f,		kf_search_win,	NULL);
 #ifdef SWM_DEBUG
 	setkeybinding(MODKEY|ShiftMask,	XK_d,		kf_dumpwins,	NULL);
 #endif
@@ -6021,8 +5684,6 @@ noconfig:
 				DNPRINTF(SWM_D_MISC, "select failed");
 		if (restart_wm == 1)
 			restart(NULL, NULL);
-		if (search_resp == 1)
-			search_do_resp();
 		if (running == 0)
 			goto done;
 	}
