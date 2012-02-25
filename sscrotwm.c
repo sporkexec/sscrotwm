@@ -2833,6 +2833,10 @@ resize(struct ws_win *win, union arg *args)
 		break;
 	}
 	if (resize_step) {
+		if(HEIGHT(win) < 1)
+			HEIGHT(win) = 1;
+		if(WIDTH(win) < 1)
+			WIDTH(win) = 1;
 		update_window(win);
 		store_float_geom(win,r);
 		return;
