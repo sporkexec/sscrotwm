@@ -15,7 +15,7 @@ CFLAGS+= -DSSCROTWM_BUILDSTR=\"$(BUILDVERSION)\"
 
 CFLAGS+= -Wall -Wno-uninitialized -I. -I${LOCALBASE}/include
 CFLAGS+= -DSWM_LIB=\"$(SWM_LIBDIR)/libswmhack.so.$(LVERS)\"
-LDADD+= -lutil -L${LOCALBASE}/lib -lX11 -lXrandr -lXtst
+LDADD+= -lutil -L${LOCALBASE}/lib -lX11 -lXrandr
 
 
 all: sscrotwm libswmhack.so.$(LVERS)

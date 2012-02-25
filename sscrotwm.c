@@ -93,7 +93,6 @@
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
 #include <X11/extensions/Xrandr.h>
-#include <X11/extensions/XTest.h>
 
 #ifdef __OSX__
 #include <osx.h>
@@ -2646,13 +2645,6 @@ send_to_ws(struct swm_region *r, union arg *args)
 }
 
 void
-pressbutton(struct swm_region *r, union arg *args)
-{
-	XTestFakeButtonEvent(display, args->id, True, CurrentTime);
-	XTestFakeButtonEvent(display, args->id, False, CurrentTime);
-}
-
-void
 raise_toggle(struct swm_region *r, union arg *args)
 {
 	if (r == NULL || r->ws == NULL)
@@ -3099,7 +3091,6 @@ enum keyfuncid {
 	kf_spawn_initscr,
 	kf_spawn_custom,
 	kf_raise_toggle,
-	kf_button2,
 	kf_width_shrink,
 	kf_width_grow,
 	kf_height_shrink,
@@ -3185,7 +3176,6 @@ struct keyfunc {
 	{ "spawn_initscr",	legacyfunc,	{0} },
 	{ "spawn_custom",	dummykeyfunc,	{0} },
 	{ "raise_toggle",	raise_toggle,	{0} },
-	{ "button2",		pressbutton,	{2} },
 	{ "width_shrink",	resize_step,	{.id = SWM_ARG_ID_WIDTHSHRINK} },
 	{ "width_grow",		resize_step,	{.id = SWM_ARG_ID_WIDTHGROW} },
 	{ "height_shrink",	resize_step,	{.id = SWM_ARG_ID_HEIGHTSHRINK} },
@@ -3708,7 +3698,6 @@ setup_keys(void)
 	setkeybinding(MODKEY|ShiftMask,	XK_Delete,	kf_spawn_custom,"lock");
 	setkeybinding(MODKEY|ShiftMask,	XK_i,		kf_spawn_custom,"initscr");
 	setkeybinding(MODKEY|ShiftMask,	XK_r,		kf_raise_toggle,NULL);
-	setkeybinding(MODKEY,		XK_v,		kf_button2,	NULL);
 	setkeybinding(MODKEY,		XK_equal,	kf_width_grow,	NULL);
 	setkeybinding(MODKEY,		XK_minus,	kf_width_shrink,NULL);
 	setkeybinding(MODKEY|ShiftMask,	XK_equal,	kf_height_grow,	NULL);
