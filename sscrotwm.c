@@ -203,7 +203,6 @@ int			outputs = 0;
 int			last_focus_event = FocusOut;
 int			(*xerrorxlib)(Display *, XErrorEvent *);
 int			other_wm;
-int			ss_enabled = 0;
 int			xrandr_support;
 int			xrandr_eventbase;
 unsigned int		numlockmask = 0;
@@ -216,23 +215,10 @@ unsigned int		mod_key = MODKEY;
 /* dialog windows */
 double			dialog_ratio = 0.6;
 
-#ifdef X_HAVE_UTF8_STRING
-#define DRAWSTRING(x...)	Xutf8DrawString(x)
-#else
-#define DRAWSTRING(x...)	XmbDrawString(x)
-#endif
-
 int			stack_enabled = 1;
 int			disable_border = 0;
 int			border_width = 1;
-char			*spawn_term[] = { NULL, NULL }; /* XXX fully dynamic */
 struct passwd		*pwd;
-
-#define SWM_MENU_FN	(2)
-#define SWM_MENU_NB	(4)
-#define SWM_MENU_NF	(6)
-#define SWM_MENU_SB	(8)
-#define SWM_MENU_SF	(10)
 
 /* layout manager data */
 struct swm_geometry {
@@ -403,8 +389,6 @@ union arg {
 #define SWM_ARG_ID_CYCLEWS_DOWN_ALL	(45)
 #define SWM_ARG_ID_STACKINC	(50)
 #define SWM_ARG_ID_STACKDEC	(51)
-#define SWM_ARG_ID_SS_ALL	(60)
-#define SWM_ARG_ID_SS_WINDOW	(61)
 #define SWM_ARG_ID_KILLWINDOW	(80)
 #define SWM_ARG_ID_DELETEWINDOW	(81)
 #define SWM_ARG_ID_WIDTHGROW	(90)
@@ -1490,16 +1474,6 @@ spawn(int ws_idx, union arg *args, int close_fd)
 
 	warn("spawn: execvp");
 	_exit(1);
-}
-
-void
-spawnterm(struct swm_region *r, union arg *args)
-{
-	DNPRINTF(SWM_D_MISC, "spawnterm\n");
-
-	if (fork() == 0) {
-		spawn(r->ws->idx, args, 1);
-	}
 }
 
 void
@@ -3054,8 +3028,6 @@ enum keyfuncid {
 	kf_focus_prev,
 	kf_swap_next,
 	kf_swap_prev,
-	kf_spawn_term,
-	kf_spawn_menu,
 	kf_quit,
 	kf_restart,
 	kf_focus_main,
@@ -3088,11 +3060,7 @@ enum keyfuncid {
 	kf_mvws_10,
 	kf_wind_kill,
 	kf_wind_del,
-	kf_screenshot_all,
-	kf_screenshot_wind,
 	kf_float_toggle,
-	kf_spawn_lock,
-	kf_spawn_initscr,
 	kf_spawn_custom,
 	kf_raise_toggle,
 	kf_width_shrink,
@@ -3109,16 +3077,7 @@ enum keyfuncid {
 };
 
 /* key definitions */
-void
-dummykeyfunc(struct swm_region *r, union arg *args)
-{
-};
-
-void
-legacyfunc(struct swm_region *r, union arg *args)
-{
-};
-
+void dummykeyfunc(struct swm_region *r, union arg *args) {};
 struct keyfunc {
 	char			name[SWM_FUNCNAME_LEN];
 	void			(*func)(struct swm_region *r, union arg *);
@@ -3139,8 +3098,6 @@ struct keyfunc {
 	{ "focus_prev",		focus,		{.id = SWM_ARG_ID_FOCUSPREV} },
 	{ "swap_next",		swapwin,	{.id = SWM_ARG_ID_SWAPNEXT} },
 	{ "swap_prev",		swapwin,	{.id = SWM_ARG_ID_SWAPPREV} },
-	{ "spawn_term",		spawnterm,	{.argv = spawn_term} },
-	{ "spawn_menu",		legacyfunc,	{0} },
 	{ "quit",		quit,		{0} },
 	{ "restart",		restart,	{0} },
 	{ "focus_main",		focus,		{.id = SWM_ARG_ID_FOCUSMAIN} },
@@ -3173,11 +3130,7 @@ struct keyfunc {
 	{ "mvws_10",		send_to_ws,	{.id = 9} },
 	{ "wind_kill",		wkill,		{.id = SWM_ARG_ID_KILLWINDOW} },
 	{ "wind_del",		wkill,		{.id = SWM_ARG_ID_DELETEWINDOW} },
-	{ "screenshot_all",	legacyfunc,	{0} },
-	{ "screenshot_wind",	legacyfunc,	{0} },
-	{ "float_toggle",	floating_toggle,{0} },
-	{ "spawn_lock",		legacyfunc,	{0} },
-	{ "spawn_initscr",	legacyfunc,	{0} },
+	{ "float_toggle",	floating_toggle,	{0} },
 	{ "spawn_custom",	dummykeyfunc,	{0} },
 	{ "raise_toggle",	raise_toggle,	{0} },
 	{ "width_shrink",	resize_step,	{.id = SWM_ARG_ID_WIDTHSHRINK} },
@@ -3440,17 +3393,6 @@ setconfspawn(char *selector, char *value, int flags)
 	return (0);
 }
 
-void
-setup_spawn(void)
-{
-	setconfspawn("term",		"xterm",		0);
-	setconfspawn("screenshot_all",	"screenshot.sh full",	0);
-	setconfspawn("screenshot_wind",	"screenshot.sh window",	0);
-	setconfspawn("lock",		"xlock",		0);
-	setconfspawn("initscr",		"initscreen.sh",	0);
-	setconfspawn("menu",		"dmenu_run", 0);
-}
-
 /* key bindings */
 #define SWM_MODNAME_SIZE	32
 #define	SWM_KEY_WS		"\n+ \t"
@@ -3641,78 +3583,6 @@ setconfbinding(char *selector, char *value, int flags)
 	}
 	DNPRINTF(SWM_D_KEY, "setconfbinding: no match\n");
 	return (1);
-}
-
-void
-setup_keys(void)
-{
-	setkeybinding(MODKEY,		XK_space,	kf_cycle_layout,NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_backslash,	kf_flip_layout,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_space,	kf_stack_reset,	NULL);
-	setkeybinding(MODKEY,		XK_h,		kf_master_shrink,NULL);
-	setkeybinding(MODKEY,		XK_l,		kf_master_grow,	NULL);
-	setkeybinding(MODKEY,		XK_comma,	kf_master_add,	NULL);
-	setkeybinding(MODKEY,		XK_period,	kf_master_del,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_comma,	kf_stack_inc,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_period,	kf_stack_dec,	NULL);
-	setkeybinding(MODKEY,		XK_Return,	kf_swap_main,	NULL);
-	setkeybinding(MODKEY,		XK_j,		kf_focus_next,	NULL);
-	setkeybinding(MODKEY,		XK_k,		kf_focus_prev,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_j,		kf_swap_next,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_k,		kf_swap_prev,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_Return,	kf_spawn_term,	NULL);
-	setkeybinding(MODKEY,		XK_p,		kf_spawn_custom,"menu");
-	setkeybinding(MODKEY|ShiftMask,	XK_q,		kf_quit,	NULL);
-	setkeybinding(MODKEY,		XK_q,		kf_restart,	NULL);
-	setkeybinding(MODKEY,		XK_m,		kf_focus_main,	NULL);
-	setkeybinding(MODKEY,		XK_1,		kf_ws_1,	NULL);
-	setkeybinding(MODKEY,		XK_2,		kf_ws_2,	NULL);
-	setkeybinding(MODKEY,		XK_3,		kf_ws_3,	NULL);
-	setkeybinding(MODKEY,		XK_4,		kf_ws_4,	NULL);
-	setkeybinding(MODKEY,		XK_5,		kf_ws_5,	NULL);
-	setkeybinding(MODKEY,		XK_6,		kf_ws_6,	NULL);
-	setkeybinding(MODKEY,		XK_7,		kf_ws_7,	NULL);
-	setkeybinding(MODKEY,		XK_8,		kf_ws_8,	NULL);
-	setkeybinding(MODKEY,		XK_9,		kf_ws_9,	NULL);
-	setkeybinding(MODKEY,		XK_0,		kf_ws_10,	NULL);
-	setkeybinding(MODKEY,		XK_Right,	kf_ws_next,	NULL);
-	setkeybinding(MODKEY,		XK_Left,	kf_ws_prev,	NULL);
-	setkeybinding(MODKEY,		XK_Up,		kf_ws_next_all,	NULL);
-	setkeybinding(MODKEY,		XK_Down,	kf_ws_prev_all,	NULL);
-	setkeybinding(MODKEY,		XK_a,		kf_ws_prior,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_Right,	kf_screen_next,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_Left,	kf_screen_prev,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_1,		kf_mvws_1,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_2,		kf_mvws_2,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_3,		kf_mvws_3,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_4,		kf_mvws_4,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_5,		kf_mvws_5,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_6,		kf_mvws_6,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_7,		kf_mvws_7,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_8,		kf_mvws_8,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_9,		kf_mvws_9,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_0,		kf_mvws_10,	NULL);
-	setkeybinding(MODKEY,		XK_Tab,		kf_focus_next,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_Tab,		kf_focus_prev,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_x,		kf_wind_kill,	NULL);
-	setkeybinding(MODKEY,		XK_x,		kf_wind_del,	NULL);
-	setkeybinding(MODKEY,		XK_s,		kf_spawn_custom,"screenshot_all");
-	setkeybinding(MODKEY|ShiftMask,	XK_s,		kf_spawn_custom,"screenshot_wind");
-	setkeybinding(MODKEY,		XK_t,		kf_float_toggle,NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_Delete,	kf_spawn_custom,"lock");
-	setkeybinding(MODKEY|ShiftMask,	XK_i,		kf_spawn_custom,"initscr");
-	setkeybinding(MODKEY|ShiftMask,	XK_r,		kf_raise_toggle,NULL);
-	setkeybinding(MODKEY,		XK_equal,	kf_width_grow,	NULL);
-	setkeybinding(MODKEY,		XK_minus,	kf_width_shrink,NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_equal,	kf_height_grow,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_minus,	kf_height_shrink,NULL);
-	setkeybinding(MODKEY,		XK_bracketleft,	kf_move_left,	NULL);
-	setkeybinding(MODKEY,		XK_bracketright,kf_move_right,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_bracketleft,	kf_move_up,	NULL);
-	setkeybinding(MODKEY|ShiftMask,	XK_bracketright,kf_move_down,	NULL);
-#ifdef SWM_DEBUG
-	setkeybinding(MODKEY|ShiftMask,	XK_d,		kf_dumpwins,	NULL);
-#endif
 }
 
 void
@@ -3922,33 +3792,15 @@ setconfquirk(char *selector, char *value, int flags)
 	return (retval);
 }
 
-void
-setup_quirks(void)
-{
-	setquirk("MPlayer",		"xv",		SWM_Q_FLOAT | SWM_Q_FULLSCREEN | SWM_Q_FOCUSPREV);
-	setquirk("OpenOffice.org 3.2",	"VCLSalFrame",	SWM_Q_FLOAT);
-	setquirk("Firefox-bin",		"firefox-bin",	SWM_Q_TRANSSZ);
-	setquirk("Firefox",		"Dialog",	SWM_Q_FLOAT);
-	setquirk("Gimp",		"gimp",		SWM_Q_FLOAT | SWM_Q_ANYWHERE);
-	setquirk("xine",		"Xine Window",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
-	setquirk("Xitk",		"Xitk Combo",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
-	setquirk("xine",		"xine Panel",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
-	setquirk("Xitk",		"Xine Window",	SWM_Q_FLOAT | SWM_Q_ANYWHERE);
-	setquirk("xine",		"xine Video Fullscreen Window",	SWM_Q_FULLSCREEN | SWM_Q_FLOAT);
-	setquirk("pcb",			"pcb",		SWM_Q_FLOAT);
-	setquirk("SDL_App",		"SDL_App",	SWM_Q_FLOAT | SWM_Q_FULLSCREEN);
-}
-
 /* conf file stuff */
 #define SWM_CONF_FILE		"sscrotwm.conf"
 #define SWM_CONF_FILE_OLD	"scrotwm.conf"
 
 enum	{
 	  SWM_S_STACK_ENABLED,
-	  SWM_S_CYCLE_EMPTY, SWM_S_CYCLE_VISIBLE, SWM_S_SS_ENABLED,
+	  SWM_S_CYCLE_EMPTY, SWM_S_CYCLE_VISIBLE,
 	  SWM_S_DISABLE_BORDER, SWM_S_BORDER_WIDTH,
-	  SWM_S_SPAWN_TERM,
-	  SWM_S_SS_APP, SWM_S_DIALOG_RATIO
+	  SWM_S_DIALOG_RATIO
 	};
 
 int
@@ -3964,21 +3816,11 @@ setconfvalue(char *selector, char *value, int flags)
 	case SWM_S_CYCLE_VISIBLE:
 		cycle_visible = atoi(value);
 		break;
-	case SWM_S_SS_ENABLED:
-		ss_enabled = atoi(value);
-		break;
 	case SWM_S_DISABLE_BORDER:
 		disable_border = atoi(value);
 		break;
 	case SWM_S_BORDER_WIDTH:
 		border_width = atoi(value);
-		break;
-	case SWM_S_SPAWN_TERM:
-		free(spawn_term[0]);
-		if ((spawn_term[0] = strdup(value)) == NULL)
-			err(1, "setconfvalue: spawn_term");
-		break;
-	case SWM_S_SS_APP:
 		break;
 	case SWM_S_DIALOG_RATIO:
 		dialog_ratio = atof(value);
@@ -4170,9 +4012,6 @@ struct config_option configopt[] = {
 	{ "program",			setconfspawn,	0 },
 	{ "quirk",			setconfquirk,	0 },
 	{ "region",			setconfregion,	0 },
-	{ "spawn_term",			setconfvalue,	SWM_S_SPAWN_TERM },
-	{ "screenshot_enabled",		setconfvalue,	SWM_S_SS_ENABLED },
-	{ "screenshot_app",		setconfvalue,	SWM_S_SS_APP },
 	{ "disable_border",		setconfvalue,	SWM_S_DISABLE_BORDER },
 	{ "border_width",		setconfvalue,	SWM_S_BORDER_WIDTH },
 	{ "autorun",			setautorun,	0 },
@@ -4191,14 +4030,10 @@ conf_load(char *filename, int keymapping)
 
 	DNPRINTF(SWM_D_CONF, "conf_load: begin\n");
 
-	if (filename == NULL) {
-		warnx("conf_load: no filename");
-		return (1);
-	}
-	if ((config = fopen(filename, "r")) == NULL) {
-		warn("conf_load: fopen: %s", filename);
-		return (1);
-	}
+	if (filename == NULL)
+		errx(1, "conf_load: no filename");
+	if ((config = fopen(filename, "r")) == NULL)
+		err(1, "conf_load: fopen: %s", filename);
 
 	while (!feof(config)) {
 		if ((line = fparseln(config, &linelen, &lineno, NULL, 0))
@@ -5254,13 +5089,6 @@ setup_screens(void)
 }
 
 void
-setup_globals(void)
-{
-	if ((spawn_term[0] = strdup("xterm")) == NULL)
-		err(1, "setup_globals: strdup: failed to allocate memory.");
-}
-
-void
 workaround(void)
 {
 	int			i;
@@ -5343,11 +5171,11 @@ main(int argc, char *argv[])
 	if (pwd == NULL)
 		errx(1, "invalid user: %d", getuid());
 
-	setup_globals();
 	setup_screens();
-	setup_keys();
-	setup_quirks();
-	setup_spawn();
+
+	#ifdef SWM_DEBUG
+		setkeybinding(MODKEY|ShiftMask,	XK_d, kf_dumpwins, NULL);
+	#endif
 
 	/* load config */
 	for (i = 0; ; i++) {
@@ -5374,7 +5202,8 @@ main(int argc, char *argv[])
 			    SWM_CONF_FILE_OLD);
 			break;
 		default:
-			goto noconfig;
+			errx(i, "No config file found");
+			break;
 		}
 
 		if (strlen(conf) && stat(conf, &sb) != -1)
@@ -5383,11 +5212,9 @@ main(int argc, char *argv[])
 				break;
 			}
 	}
-noconfig:
 
-	/* load conf (if any) */
-	if (cfile)
-		conf_load(cfile, SWM_CONF_DEFAULT);
+	/* load conf */
+	conf_load(cfile, SWM_CONF_DEFAULT);
 
 	setup_ewmh();
 	/* set some values to work around bad programs */
@@ -5399,7 +5226,6 @@ noconfig:
 		setenv("SWM_STARTED", "YES", 1);
 
 	unfocus_all();
-
 	grabkeys();
 	stack();
 
