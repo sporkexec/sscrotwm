@@ -181,8 +181,6 @@ u_int32_t		swm_debug = 0
 #define WINID(w)		((w) ? (w)->id : 0)
 #define YESNO(x)		((x) ? "yes" : "no")
 
-#define SWM_CONF_DEFAULT	(0)
-
 #ifndef SWM_LIB
 #define SWM_LIB			"/usr/local/lib/libswmhack.so"
 #endif
@@ -286,7 +284,7 @@ void	new_region(struct swm_screen *, int, int, int, int);
 void	unmanage_window(struct ws_win *);
 long	getstate(Window);
 
-int	conf_load(char *, int);
+int	conf_load(char *);
 
 struct layout {
 	void		(*l_stack)(struct workspace *, struct swm_geometry *);
@@ -3921,7 +3919,7 @@ struct config_option configopt[] = {
 
 
 int
-conf_load(char *filename, int keymapping)
+conf_load(char *filename)
 {
 	FILE			*config;
 	char			*line, *cp, *optsub, *optval;
@@ -3969,11 +3967,6 @@ conf_load(char *filename, int keymapping)
 		}
 		if (optind == -1) {
 			warnx("%s: line %zd: unknown option %.*s",
-			    filename, lineno, wordlen, cp);
-			goto out;
-		}
-		if (keymapping && strcmp(opt->optname, "bind")) {
-			warnx("%s: line %zd: invalid option %.*s",
 			    filename, lineno, wordlen, cp);
 			goto out;
 		}
@@ -5102,7 +5095,7 @@ main(int argc, char *argv[])
 	}
 
 	/* load conf */
-	conf_load(cfile, SWM_CONF_DEFAULT);
+	conf_load(cfile);
 
 	setup_ewmh();
 	/* set some values to work around bad programs */
