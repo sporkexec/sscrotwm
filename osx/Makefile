@@ -1,5 +1,5 @@
-CFLAGS+= -O2 -Wall -ggdb -D_GNU_SOURCE -D__OSX__ -I. -I..
-LDADD+=  -L/usr/X11/lib/ -lX11 -lXrandr
+nFLAGS+= -O2 -Wall -ggdb -D_GNU_SOURCE -D__OSX__ -I. -I..
+LDADD+=  -L/usr/X11/lib/ -lX11
 
 PREFIX?= /usr/local
 BINDIR?= $(PREFIX)/bin

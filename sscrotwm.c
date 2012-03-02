@@ -92,7 +92,6 @@
 #include <X11/Xlib.h>
 #include <X11/Xproto.h>
 #include <X11/Xutil.h>
-#include <X11/extensions/Xrandr.h>
 
 #ifdef __OSX__
 #include <osx.h>
@@ -104,16 +103,6 @@
 static const char	*buildstr = SSCROTWM_BUILDSTR;
 #else
 static const char	*buildstr = SSCROTWM_VERSION;
-#endif
-
-#if RANDR_MAJOR < 1
-#  error XRandR versions less than 1.0 are not supported
-#endif
-
-#if RANDR_MAJOR >= 1
-#if RANDR_MINOR >= 2
-#define SWM_XRR_HAS_CRTC
-#endif
 #endif
 
 /*#define SWM_DEBUG*/
@@ -195,8 +184,6 @@ volatile sig_atomic_t   restart_wm = 0;
 int			outputs = 0;
 int			(*xerrorxlib)(Display *, XErrorEvent *);
 int			other_wm;
-int			xrandr_support;
-int			xrandr_eventbase;
 unsigned int		numlockmask = 0;
 Display			*display;
 
@@ -835,22 +822,6 @@ geteventname(XEvent *e)
 		break;
 	case MappingNotify:
 		name = "MappingNotify";
-		break;
-	default:
-		name = "Unknown";
-	}
-
-	return name;
-}
-
-char *
-xrandr_geteventname(XEvent *e)
-{
-	char			*name = NULL;
-
-	switch(e->type - xrandr_eventbase) {
-	case RRScreenChangeNotify:
-		name = "RRScreenChangeNotify";
 		break;
 	default:
 		name = "Unknown";
@@ -4776,87 +4747,6 @@ new_region(struct swm_screen *s, int x, int y, int w, int h)
 }
 
 void
-scan_xrandr(int i)
-{
-#ifdef SWM_XRR_HAS_CRTC
-	XRRCrtcInfo		*ci;
-	XRRScreenResources	*sr;
-	int			c;
-	int			ncrtc = 0;
-#endif /* SWM_XRR_HAS_CRTC */
-	struct swm_region	*r;
-
-
-	if (i >= ScreenCount(display))
-		errx(1, "scan_xrandr: invalid screen");
-
-	/* remove any old regions */
-	while ((r = TAILQ_FIRST(&screens[i].rl)) != NULL) {
-		r->ws->old_r = r->ws->r = NULL;
-		TAILQ_REMOVE(&screens[i].rl, r, entry);
-		TAILQ_INSERT_TAIL(&screens[i].orl, r, entry);
-	}
-	outputs = 0;
-
-	/* map virtual screens onto physical screens */
-#ifdef SWM_XRR_HAS_CRTC
-	if (xrandr_support) {
-		sr = XRRGetScreenResources(display, screens[i].root);
-		if (sr == NULL)
-			new_region(&screens[i], 0, 0,
-			    DisplayWidth(display, i),
-			    DisplayHeight(display, i));
-		else
-			ncrtc = sr->ncrtc;
-
-		for (c = 0, ci = NULL; c < ncrtc; c++) {
-			ci = XRRGetCrtcInfo(display, sr, sr->crtcs[c]);
-			if (ci->noutput == 0)
-				continue;
-
-			if (ci != NULL && ci->mode == None)
-				new_region(&screens[i], 0, 0,
-				    DisplayWidth(display, i),
-				    DisplayHeight(display, i));
-			else
-				new_region(&screens[i],
-				    ci->x, ci->y, ci->width, ci->height);
-		}
-		if (ci)
-			XRRFreeCrtcInfo(ci);
-		XRRFreeScreenResources(sr);
-	} else
-#endif /* SWM_XRR_HAS_CRTC */
-	{
-		new_region(&screens[i], 0, 0, DisplayWidth(display, i),
-		    DisplayHeight(display, i));
-	}
-}
-
-void
-screenchange(XEvent *e) {
-	XRRScreenChangeNotifyEvent	*xe = (XRRScreenChangeNotifyEvent *)e;
-	int				i;
-
-	DNPRINTF(SWM_D_EVENT, "screenchange: root: 0x%lx\n", xe->root);
-
-	if (!XRRUpdateConfiguration(e))
-		return;
-
-	/* silly event doesn't include the screen index */
-	for (i = 0; i < ScreenCount(display); i++)
-		if (screens[i].root == xe->root)
-			break;
-	if (i >= ScreenCount(display))
-		errx(1, "screenchange: screen not found");
-
-	/* brute force for now, just re-enumerate the regions */
-	scan_xrandr(i);
-
-	stack();
-}
-
-void
 grab_windows(void)
 {
 	Window			d1, d2, *wins = NULL;
@@ -4905,20 +4795,13 @@ void
 setup_screens(void)
 {
 	int			i, j, k;
-	int			errorbase, major, minor;
 	struct workspace	*ws;
+	struct swm_region	*r;
 
 	if ((screens = calloc(ScreenCount(display),
 	     sizeof(struct swm_screen))) == NULL)
 		err(1, "setup_screens: calloc: failed to allocate memory for "
 		    "screens");
-
-	/* initial Xrandr setup */
-	xrandr_support = XRRQueryExtension(display,
-	    &xrandr_eventbase, &errorbase);
-	if (xrandr_support)
-		if (XRRQueryVersion(display, &major, &minor) && major < 1)
-			xrandr_support = 0;
 
 	/* map physical screens */
 	for (i = 0; i < ScreenCount(display); i++) {
@@ -4951,11 +4834,15 @@ setup_screens(void)
 			ws->cur_layout = &layouts[0];
 		}
 
-		scan_xrandr(i);
-
-		if (xrandr_support)
-			XRRSelectInput(display, screens[i].root,
-			    RRScreenChangeNotifyMask);
+		/* remove any old regions */
+		while ((r = TAILQ_FIRST(&screens[i].rl)) != NULL) {
+			r->ws->old_r = r->ws->r = NULL;
+			TAILQ_REMOVE(&screens[i].rl, r, entry);
+			TAILQ_INSERT_TAIL(&screens[i].orl, r, entry);
+		}
+		outputs = 0;
+		new_region(&screens[i], 0, 0, DisplayWidth(display, i),
+			DisplayHeight(display, i));
 	}
 }
 
@@ -5106,18 +4993,6 @@ main(int argc, char *argv[])
 
 				if (handler[e.type])
 					handler[e.type](&e);
-			} else {
-				DNPRINTF(SWM_D_EVENTQ, "XRandr Event: window: "
-				    "0x%lx, type: %s (%d)\n", e.xany.window,
-				    xrandr_geteventname(&e), e.type);
-
-				switch (e.type - xrandr_eventbase) {
-				case RRScreenChangeNotify:
-					screenchange(&e);
-					break;
-				default:
-					break;
-				}
 			}
 		}
 

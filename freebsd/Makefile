@@ -12,7 +12,7 @@ CFLAGS+= -DSSCROTWM_BUILDSTR=\"$(BUILDVERSION)\"
 .endif
 
 CFLAGS+= -Wall -Wno-uninitialized -I. -I${LOCALBASE}/include
-LDADD+= -lutil -lX11 -lXrandr
+LDADD+= -lutil -lX11
 
 
 all: sscrotwm

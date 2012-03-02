@@ -1,5 +1,5 @@
 CFLAGS+= -Wall -ggdb -D_GNU_SOURCE -I.
-LDADD+= -lX11 -lXrandr
+LDADD+= -lX11
 
 PREFIX?= /usr/local
 BINDIR?= $(PREFIX)/bin
