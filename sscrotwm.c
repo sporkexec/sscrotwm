@@ -3699,10 +3699,6 @@ setconfquirk(char *selector, char *value, int flags)
 	return (retval);
 }
 
-/* conf file stuff */
-#define SWM_CONF_FILE		"sscrotwm.conf"
-#define SWM_CONF_FILE_OLD	"scrotwm.conf"
-
 enum	{
 	  SWM_S_DISABLE_BORDER, SWM_S_BORDER_WIDTH,
 	  SWM_S_DIALOG_RATIO
@@ -4989,6 +4985,8 @@ workaround(void)
 	}
 }
 
+#define SWM_CONF_FILE		"sscrotwm.conf"
+
 int
 main(int argc, char *argv[])
 {
@@ -5066,26 +5064,15 @@ main(int argc, char *argv[])
 			snprintf(conf, sizeof conf, "/etc/%s",
 			    SWM_CONF_FILE);
 			break;
-		case 2:
-			/* ~ compat */
-			snprintf(conf, sizeof conf, "%s/.%s",
-			    pwd->pw_dir, SWM_CONF_FILE_OLD);
-			break;
-		case 3:
-			/* global compat */
-			snprintf(conf, sizeof conf, "/etc/%s",
-			    SWM_CONF_FILE_OLD);
-			break;
 		default:
 			errx(i, "No config file found");
 			break;
 		}
 
-		if (strlen(conf) && stat(conf, &sb) != -1)
-			if (S_ISREG(sb.st_mode)) {
-				cfile = conf;
-				break;
-			}
+		if (strlen(conf) && stat(conf, &sb) != -1 && S_ISREG(sb.st_mode)) {
+			cfile = conf;
+			break;
+		}
 	}
 
 	/* load conf */
