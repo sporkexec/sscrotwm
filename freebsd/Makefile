@@ -29,7 +29,6 @@ install: all
 	install -m 755 -d $(SWM_MANDIR)/man1
 	install -m 755 sscrotwm $(SWM_BINDIR)
 	install -m 644 ../sscrotwm.1 $(SWM_MANDIR)/man1/sscrotwm.1
-	ln -sf $(SWM_BINDIR)/sscrotwm $(SWM_BINDIR)/scrotwm
 
 clean:
 	rm -f sscrotwm *.o sscrotwm.c version.h

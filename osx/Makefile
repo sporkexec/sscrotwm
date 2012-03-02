@@ -20,7 +20,6 @@ install: all
 	install -m 755 -d $(DESTDIR)$(MANDIR)/man1
 	install -m 755 sscrotwm $(DESTDIR)$(BINDIR)
 	install -m 644 ../sscrotwm.1 $(DESTDIR)$(MANDIR)/man1/sscrotwm.1
-	ln -sf $(DESTDIR)$(BINDIR)/sscrotwm $(DESTDIR)$(BINDIR)/scrotwm
 
 clean:
 	rm -f sscrotwm *.o sscrotwm.c
