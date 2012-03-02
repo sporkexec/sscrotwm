@@ -181,10 +181,6 @@ u_int32_t		swm_debug = 0
 #define WINID(w)		((w) ? (w)->id : 0)
 #define YESNO(x)		((x) ? "yes" : "no")
 
-#ifndef SWM_LIB
-#define SWM_LIB			"/usr/local/lib/libswmhack.so"
-#endif
-
 char			**start_argv;
 Atom			astate;
 Atom			aprot;
@@ -1371,8 +1367,6 @@ spawn(int ws_idx, union arg *args, int close_fd)
 
 	if (display)
 		close(ConnectionNumber(display));
-
-	setenv("LD_PRELOAD", SWM_LIB, 1);
 
 	if (asprintf(&ret, "%d", ws_idx) == -1) {
 		warn("spawn: asprintf SWM_WS");

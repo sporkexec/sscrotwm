@@ -3,7 +3,6 @@
 PREFIX?=/usr/local
 
 BINDIR=${PREFIX}/bin
-SUBDIR= lib
 
 PROG=sscrotwm
 MAN=sscrotwm.1
