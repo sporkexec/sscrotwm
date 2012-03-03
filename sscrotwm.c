@@ -4068,7 +4068,6 @@ window_get_pid(Window win)
 	unsigned long		bytes_after_return = 0;
 	long			*pid = NULL;
 	long			ret = 0;
-	const char		*errstr;
 	unsigned char		*prop = NULL;
 
 	if (XGetWindowProperty(display, win,
@@ -4098,8 +4097,7 @@ tryharder:
 	if (prop == NULL)
 		return (0);
 
-	ret = strtonum((const char *)prop, 0, UINT_MAX, &errstr);
-	/* ignore error because strtonum returns 0 anyway */
+	ret = strtol((const char *)prop, (char**)NULL, 10);
 	XFree(prop);
 
 	return (ret);
@@ -4118,7 +4116,6 @@ manage_window(Window id)
 	unsigned char		ws_idx_str[SWM_PROPLEN], *prop = NULL;
 	struct swm_region	*r;
 	long			mask = 0;
-	const char		*errstr;
 	XWindowChanges		wc;
 	struct pid_e		*p;
 	struct quirk		*qp;
@@ -4192,10 +4189,11 @@ manage_window(Window id)
 		p = NULL;
 	} else if (prop && win->transient == 0) {
 		DNPRINTF(SWM_D_PROP, "manage_window: get _SWM_WS: %s\n", prop);
-		ws_idx = strtonum((const char *)prop, 0, 9, &errstr);
-		if (errstr) {
-			DNPRINTF(SWM_D_EVENT, "manage_window: window: #%s: %s",
-			    errstr, prop);
+		errno = 0;
+		ws_idx = strtol((const char *)prop, (char**)NULL, 10);
+		if (ws_idx < 0 || errno) {
+			ws_idx = 0;
+			DNPRINTF(SWM_D_EVENT, "manage_window: window: %s", prop);
 		}
 		ws = &r->s->ws[ws_idx];
 	} else {
